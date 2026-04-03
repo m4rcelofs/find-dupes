@@ -31,6 +31,7 @@ export type MatchGroup = {
   id: number;
   strategy: string;
   representativeFingerprint: string;
+  /** 0–100, where 100 = identical (exact hash match) */
   similarityScore: number;
   createdAt: number;
 };
@@ -56,10 +57,11 @@ export type Decision = 'keep' | 'delete' | 'skip';
 export type ReportAction = {
   id?: number;
   groupId: number;
+  /** Keys are string-encoded file IDs (e.g. String(fileId)) */
   decisions: Record<string, Decision>;
   decidedAt: number;
 };
 
 export type ScanProgressEvent =
-  | { type: 'file'; path: string; current: number; total: number }
+  | { type: 'file'; path: string; current: number; total?: number }
   | { type: 'groups'; count: number };
