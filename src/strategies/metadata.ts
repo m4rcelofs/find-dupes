@@ -28,7 +28,7 @@ const extractVideoMetadata = (path: string): Promise<FileMetadata> =>
 
 const fingerprintFromMetadata = (meta: FileMetadata): string =>
   createHash('md5')
-    .update(JSON.stringify({ w: meta.width, h: meta.height, d: meta.duration }))
+    .update(JSON.stringify({ w: meta.width, h: meta.height, d: meta.duration, b: meta.bitrate }))
     .digest('hex');
 
 export const createMetadataStrategy = (): Strategy => ({
