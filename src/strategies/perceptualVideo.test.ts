@@ -1,17 +1,36 @@
-import { it, expect, vi } from 'vitest';
+import { it, expect, vi, beforeAll } from 'vitest';
+import sharp from 'sharp';
 import { createPerceptualVideoStrategy } from './perceptualVideo.js';
 
-// We mock ffmpeg frame extraction since we don't have video fixtures
-const mockExtractFrames = vi.fn().mockResolvedValue([
-  Buffer.from('fake-frame-1'),
-  Buffer.from('fake-frame-2'),
-]);
+const FRAME_COUNT = 4;
 
-it('produces a fingerprint string', async () => {
+// Real tiny image buffers — exercises actual dHash code path
+let realFrameBuffers: Buffer[];
+
+beforeAll(async () => {
+  // Create a 9x8 solid-color PNG in memory (smallest valid sharp input)
+  const frameBuffer = await sharp({
+    create: { width: 9, height: 8, channels: 3, background: { r: 200, g: 100, b: 50 } },
+  })
+    .png()
+    .toBuffer();
+  // Use FRAME_COUNT real frames
+  realFrameBuffers = Array(FRAME_COUNT).fill(frameBuffer);
+});
+
+const mockExtractFrames = vi.fn(async (_path: string, _count: number) => realFrameBuffers);
+
+it('produces a fingerprint string from real frame buffers', async () => {
   const strategy = createPerceptualVideoStrategy({ extractFrames: mockExtractFrames });
   const result = await strategy.analyze({ path: '/fake/video.mp4', mimeType: 'video/mp4' });
   expect(typeof result.fingerprint).toBe('string');
   expect(result.fingerprint.length).toBeGreaterThan(0);
+});
+
+it('fingerprint length is FRAME_COUNT × 16 hex chars', async () => {
+  const strategy = createPerceptualVideoStrategy({ extractFrames: mockExtractFrames });
+  const result = await strategy.analyze({ path: '/fake/video.mp4', mimeType: 'video/mp4' });
+  expect(result.fingerprint.length).toBe(FRAME_COUNT * 16);
 });
 
 it('only applies to videos', () => {

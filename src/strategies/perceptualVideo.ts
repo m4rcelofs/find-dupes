@@ -52,7 +52,8 @@ const dHashFromBuffer = async (buf: Buffer): Promise<string> => {
       }
     }
     return hash.toString(16).padStart(16, '0');
-  } catch {
+  } catch (err) {
+    console.error('perceptualVideo: failed to dHash frame, using zero hash:', err);
     return '0000000000000000';
   }
 };

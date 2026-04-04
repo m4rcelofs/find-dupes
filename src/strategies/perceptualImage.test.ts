@@ -48,3 +48,7 @@ it('hammingToSimilarity returns 100 for distance 0', () => {
 it('hammingToSimilarity returns 0 for distance 64', () => {
   expect(hammingToSimilarity(64)).toBe(0);
 });
+
+it('hammingDistance throws on length mismatch', () => {
+  expect(() => hammingDistance('0000', 'ffffffff')).toThrow('length mismatch');
+});
