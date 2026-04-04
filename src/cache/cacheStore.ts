@@ -39,7 +39,7 @@ const MIGRATIONS = `
 
   CREATE TABLE IF NOT EXISTS report_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_id INTEGER NOT NULL REFERENCES match_groups(id) ON DELETE CASCADE,
+    group_id INTEGER NOT NULL UNIQUE REFERENCES match_groups(id) ON DELETE CASCADE,
     decisions_json TEXT NOT NULL,
     decided_at INTEGER NOT NULL
   );
@@ -56,7 +56,7 @@ export const createCacheStore = (dbPath: string) => {
   const now = () => Date.now();
 
   const upsertFile = (file: { path: string; size: number; mtime: number; mimeType: string }): number => {
-    db.prepare(`
+    const row = db.prepare(`
       INSERT INTO files (path, size, mtime, mime_type, scanned_at, deleted)
       VALUES (@path, @size, @mtime, @mimeType, @scannedAt, 0)
       ON CONFLICT(path) DO UPDATE SET
@@ -64,8 +64,9 @@ export const createCacheStore = (dbPath: string) => {
         mtime = excluded.mtime,
         scanned_at = excluded.scanned_at,
         deleted = 0
-    `).run({ ...file, scannedAt: now() });
-    return (db.prepare('SELECT id FROM files WHERE path = ?').get(file.path) as { id: number }).id;
+      RETURNING id
+    `).get({ ...file, scannedAt: now() }) as { id: number };
+    return row.id;
   };
 
   const rowToFileInfo = (row: Record<string, unknown>): FileInfo => ({
@@ -95,9 +96,12 @@ export const createCacheStore = (dbPath: string) => {
   const markDeletedExcept = (livePaths: Set<string>): void => {
     const allFiles = db.prepare('SELECT id, path FROM files WHERE deleted = 0').all() as { id: number; path: string }[];
     const stmt = db.prepare('UPDATE files SET deleted = 1 WHERE id = ?');
-    for (const file of allFiles) {
-      if (!livePaths.has(file.path)) stmt.run(file.id);
-    }
+    const markDeleted = db.transaction(() => {
+      for (const file of allFiles) {
+        if (!livePaths.has(file.path)) stmt.run(file.id);
+      }
+    });
+    markDeleted();
   };
 
   const upsertStrategyResult = (
@@ -174,14 +178,15 @@ export const createCacheStore = (dbPath: string) => {
 
     return groups.map((g) => {
       const members = db.prepare(`
-        SELECT mgm.*, f.path, f.size, f.mtime, f.mime_type, f.scanned_at, f.deleted,
+        SELECT mgm.id as mgm_id, mgm.group_id, mgm.file_id, mgm.quality_score,
+               f.path, f.size, f.mtime, f.mime_type, f.scanned_at, f.deleted,
                sr.metadata_json
         FROM match_group_members mgm
         JOIN files f ON f.id = mgm.file_id
         LEFT JOIN strategy_results sr ON sr.file_id = mgm.file_id AND sr.strategy = ?
         WHERE mgm.group_id = ?
         ORDER BY mgm.quality_score DESC
-      `).all(g.strategy, g.id) as Array<Record<string, unknown>>;
+      `).all(g.strategy, g.id) as Array<Record<string, unknown> & { mgm_id: number }>;
 
       return {
         id: g.id,
@@ -190,7 +195,7 @@ export const createCacheStore = (dbPath: string) => {
         similarityScore: g.similarity_score,
         createdAt: g.created_at,
         members: members.map((m) => ({
-          id: m.id as number,
+          id: m.mgm_id as number,
           groupId: g.id,
           fileId: m.file_id as number,
           qualityScore: m.quality_score as number,
@@ -213,6 +218,9 @@ export const createCacheStore = (dbPath: string) => {
     db.prepare(`
       INSERT INTO report_actions (group_id, decisions_json, decided_at)
       VALUES (?, ?, ?)
+      ON CONFLICT(group_id) DO UPDATE SET
+        decisions_json = excluded.decisions_json,
+        decided_at = excluded.decided_at
     `).run(groupId, JSON.stringify(decisions), now());
   };
 
@@ -222,6 +230,7 @@ export const createCacheStore = (dbPath: string) => {
       FROM report_actions ra
       JOIN match_group_members mgm ON mgm.group_id = ra.group_id
       JOIN files f ON f.id = mgm.file_id
+      WHERE f.deleted = 0
     `).all() as Array<{ path: string; file_id: number; decisions_json: string }>;
 
     return rows

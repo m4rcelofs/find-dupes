@@ -90,6 +90,18 @@ describe('match groups', () => {
     expect(store.getGroupsWithMembers(true)).toHaveLength(0);
     expect(store.getGroupsWithMembers(false)).toHaveLength(1);
   });
+
+  it('returns member id as match_group_members.id, not file id', () => {
+    // Insert a spare file first so fileId > 1, ensuring mgm.id (which starts at 1) differs from fileId
+    store.upsertFile({ path: '/spare.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const fileId = store.upsertFile({ path: '/x.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, fileId, 500);
+    const groups = store.getGroupsWithMembers();
+    const member = groups[0].members[0];
+    expect(member.id).not.toBe(fileId); // mgm.id (=1) != file.id (=2)
+    expect(member.fileId).toBe(fileId);
+  });
 });
 
 describe('report actions', () => {
@@ -107,6 +119,25 @@ describe('report actions', () => {
     const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
     store.insertMatchGroupMember(groupId, id, 500);
     store.saveReportAction(groupId, { [String(id)]: 'keep' });
+    expect(store.getPendingDeletes()).not.toContain('/a.jpg');
+  });
+
+  it('updates decision when saveReportAction is called twice on the same group', () => {
+    const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, id, 500);
+    store.saveReportAction(groupId, { [String(id)]: 'keep' });
+    store.saveReportAction(groupId, { [String(id)]: 'delete' }); // second call updates
+    const deletes = store.getPendingDeletes();
+    expect(deletes).toContain('/a.jpg');
+  });
+
+  it('does not return paths where file is marked deleted', () => {
+    const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, id, 500);
+    store.saveReportAction(groupId, { [String(id)]: 'delete' });
+    store.markDeletedExcept(new Set()); // mark all files deleted
     expect(store.getPendingDeletes()).not.toContain('/a.jpg');
   });
 });
