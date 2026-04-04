@@ -20,8 +20,8 @@ const extractVideoMetadata = (path: string): Promise<FileMetadata> =>
       resolve({
         width: videoStream?.width ?? undefined,
         height: videoStream?.height ?? undefined,
-        bitrate: format.bit_rate ? parseInt(format.bit_rate, 10) : undefined,
-        duration: format.duration ? parseFloat(format.duration) : undefined,
+        bitrate: format.bit_rate ? Math.round(format.bit_rate) : undefined,
+        duration: format.duration ?? undefined,
       });
     });
   });
