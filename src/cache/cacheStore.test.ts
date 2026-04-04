@@ -1,0 +1,112 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createCacheStore } from './cacheStore.js';
+import type { FileMetadata } from '../types.js';
+
+let store: ReturnType<typeof createCacheStore>;
+
+beforeEach(() => {
+  store = createCacheStore(':memory:');
+});
+
+describe('files', () => {
+  it('upserts and retrieves a file by path', () => {
+    const id = store.upsertFile({ path: '/a/b.jpg', size: 1000, mtime: 1000, mimeType: 'image/jpeg' });
+    const file = store.getFileByPath('/a/b.jpg');
+    expect(file).toBeDefined();
+    expect(file!.id).toBe(id);
+    expect(file!.path).toBe('/a/b.jpg');
+    expect(file!.deleted).toBe(false);
+  });
+
+  it('updates mtime/size on re-upsert', () => {
+    store.upsertFile({ path: '/a/b.jpg', size: 1000, mtime: 1000, mimeType: 'image/jpeg' });
+    store.upsertFile({ path: '/a/b.jpg', size: 2000, mtime: 2000, mimeType: 'image/jpeg' });
+    const file = store.getFileByPath('/a/b.jpg');
+    expect(file!.size).toBe(2000);
+    expect(file!.mtime).toBe(2000);
+  });
+
+  it('marks files as deleted when not in live paths', () => {
+    store.upsertFile({ path: '/a/b.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    store.upsertFile({ path: '/a/c.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    store.markDeletedExcept(new Set(['/a/b.jpg']));
+    expect(store.getFileByPath('/a/c.jpg')!.deleted).toBe(true);
+    expect(store.getFileByPath('/a/b.jpg')!.deleted).toBe(false);
+  });
+
+  it('invalidates strategy results for a file', () => {
+    const id = store.upsertFile({ path: '/a/b.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    store.upsertStrategyResult(id, 'exactHash', 'abc123', {});
+    store.invalidateFile(id);
+    expect(store.getStrategyResult(id, 'exactHash')).toBeUndefined();
+  });
+
+  it('retrieves a file by id', () => {
+    const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const file = store.getFileById(id);
+    expect(file?.path).toBe('/a.jpg');
+  });
+});
+
+describe('strategy results', () => {
+  it('stores and retrieves a strategy result', () => {
+    const id = store.upsertFile({ path: '/a/b.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const meta: FileMetadata = { width: 1920, height: 1080 };
+    store.upsertStrategyResult(id, 'exactHash', 'deadbeef', meta);
+    const result = store.getStrategyResult(id, 'exactHash');
+    expect(result).toBeDefined();
+    expect(result!.fingerprint).toBe('deadbeef');
+    expect(result!.metadata.width).toBe(1920);
+  });
+
+  it('lists all results for a strategy', () => {
+    const id1 = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const id2 = store.upsertFile({ path: '/b.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    store.upsertStrategyResult(id1, 'exactHash', 'aaa', {});
+    store.upsertStrategyResult(id2, 'exactHash', 'bbb', {});
+    const results = store.getAllStrategyResults('exactHash');
+    expect(results).toHaveLength(2);
+  });
+});
+
+describe('match groups', () => {
+  it('inserts groups and members, clears by strategy', () => {
+    const fileId = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, fileId, 500);
+    const groups = store.getGroupsWithMembers();
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members).toHaveLength(1);
+
+    store.clearMatchGroupsForStrategy('exactHash');
+    expect(store.getGroupsWithMembers()).toHaveLength(0);
+  });
+
+  it('returns undecided groups only when undecidedOnly=true', () => {
+    const fileId = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, fileId, 500);
+    store.saveReportAction(groupId, { [String(fileId)]: 'keep' });
+    expect(store.getGroupsWithMembers(true)).toHaveLength(0);
+    expect(store.getGroupsWithMembers(false)).toHaveLength(1);
+  });
+});
+
+describe('report actions', () => {
+  it('saves decisions and returns pending deletes', () => {
+    const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, id, 500);
+    store.saveReportAction(groupId, { [String(id)]: 'delete' });
+    const deletes = store.getPendingDeletes();
+    expect(deletes).toContain('/a.jpg');
+  });
+
+  it('does not return paths marked as keep', () => {
+    const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
+    store.insertMatchGroupMember(groupId, id, 500);
+    store.saveReportAction(groupId, { [String(id)]: 'keep' });
+    expect(store.getPendingDeletes()).not.toContain('/a.jpg');
+  });
+});
