@@ -9,7 +9,11 @@
   let status = $state('');
 
   onMount(async () => {
-    groups = await fetchGroups();
+    try {
+      groups = await fetchGroups();
+    } catch (e) {
+      status = `Failed to load groups: ${e}`;
+    }
   });
 
   const currentGroup = $derived(groups[currentIndex]);
@@ -20,11 +24,15 @@
   };
 
   const onCommit = async () => {
-    const result = await commitDeletes();
-    if (result.dryRun) {
-      status = `Dry run — would delete: ${result.wouldDelete?.join(', ')}`;
-    } else {
-      status = `Deleted ${result.deleted?.length ?? 0} file(s).`;
+    try {
+      const result = await commitDeletes();
+      if (result.dryRun) {
+        status = `Dry run — would delete: ${result.wouldDelete?.join(', ')}`;
+      } else {
+        status = `Deleted ${result.deleted?.length ?? 0} file(s).`;
+      }
+    } catch (e) {
+      status = `Commit failed: ${e}`;
     }
   };
 </script>
@@ -41,7 +49,9 @@
   {/if}
 
   {#if currentGroup}
-    <GroupView group={currentGroup} onDecided={onDecided} />
+    {#key currentGroup.id}
+      <GroupView group={currentGroup} onDecided={onDecided} />
+    {/key}
   {:else if groups.length === 0}
     <p class="empty">No duplicate groups found.</p>
   {:else}
