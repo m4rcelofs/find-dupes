@@ -1,4 +1,4 @@
-import { readdir, stat, lstat } from 'node:fs/promises';
+import { readdir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lookup as mimeLookup } from 'mime-types';
 
@@ -39,11 +39,10 @@ export const walkDirectory = async (
     const mimeType = mimeLookup(entry.name);
     if (!isSupportedMime(mimeType)) continue;
 
-    const fileStat = await stat(fullPath);
     onFile({
       path: fullPath,
-      size: fileStat.size,
-      mtime: Math.floor(fileStat.mtimeMs),
+      size: lstats.size,
+      mtime: Math.floor(lstats.mtimeMs),
       mimeType,
     });
   }
