@@ -53,9 +53,9 @@ export const runScan = async ({ rootDir, store, strategies, threshold, onProgres
         }
       }
     } else {
-      // New or modified file — run all applicable strategies
-      fileId = store.upsertFile(walkedFile);
+      // New or modified file — invalidate stale results, then upsert
       if (existing) store.invalidateFile(existing.id);
+      fileId = store.upsertFile(walkedFile);
 
       for (const strategy of strategies) {
         if (!strategyApplies(strategy, walkedFile.mimeType)) continue;
