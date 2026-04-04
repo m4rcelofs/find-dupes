@@ -1,0 +1,28 @@
+import type { GroupWithMembers, Decision } from '../../../../types.js';
+
+export const fetchGroups = async (): Promise<GroupWithMembers[]> => {
+  const res = await fetch('/api/groups');
+  if (!res.ok) throw new Error('Failed to fetch groups');
+  return res.json() as Promise<GroupWithMembers[]>;
+};
+
+export const saveAction = async (
+  groupId: number,
+  decisions: Record<string, Decision>,
+): Promise<void> => {
+  const res = await fetch(`/api/groups/${groupId}/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decisions }),
+  });
+  if (!res.ok) throw new Error('Failed to save action');
+};
+
+export const commitDeletes = async (): Promise<{ dryRun: boolean; deleted?: string[]; wouldDelete?: string[] }> => {
+  const res = await fetch('/api/commit', { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to commit');
+  return res.json();
+};
+
+export const mediaUrl = (filePath: string): string =>
+  `/api/media?path=${encodeURIComponent(filePath)}`;
