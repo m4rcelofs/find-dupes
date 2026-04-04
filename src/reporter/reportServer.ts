@@ -2,6 +2,7 @@ import express, { type Express } from 'express';
 import { unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CacheStore } from '../cache/cacheStore.js';
 import type { Decision } from '../types.js';
@@ -32,6 +33,10 @@ export const createReportServer = ({ store, dryRun }: ReportServerOptions): Expr
 
   app.post('/api/groups/:id/action', (req, res) => {
     const groupId = parseInt(req.params.id, 10);
+    if (isNaN(groupId)) {
+      res.status(400).json({ error: 'invalid group id' });
+      return;
+    }
     const { decisions } = req.body as { decisions: Record<string, Decision> };
     if (!decisions || typeof decisions !== 'object') {
       res.status(400).json({ error: 'decisions required' });
@@ -63,7 +68,12 @@ export const createReportServer = ({ store, dryRun }: ReportServerOptions): Expr
   // Serve media files for preview (browser fetches these as <img src> / <video src>)
   app.get('/api/media', (req, res) => {
     const filePath = req.query.path as string;
-    if (!filePath || !existsSync(filePath)) {
+    if (!filePath || !isAbsolute(filePath)) {
+      res.status(400).send('Absolute path required');
+      return;
+    }
+    const file = store.getFileByPath(filePath);
+    if (!file) {
       res.status(404).send('Not found');
       return;
     }

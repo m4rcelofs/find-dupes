@@ -50,6 +50,11 @@ describe('POST /api/groups/:id/action', () => {
     const groups = await request(app).get('/api/groups');
     expect(groups.body).toHaveLength(0);
   });
+
+  it('returns 400 for non-numeric group id', async () => {
+    const res = await request(app).post('/api/groups/abc/action').send({ decisions: {} });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('POST /api/commit', () => {
