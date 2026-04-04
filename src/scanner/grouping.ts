@@ -26,6 +26,17 @@ export const groupExact = (entries: FingerprintEntry[]): MatchCluster[] => {
 };
 
 export const groupPerceptual = (entries: FingerprintEntry[], threshold: number): MatchCluster[] => {
+  if (entries.length === 0) return [];
+
+  // Validate all fingerprints have the same length to avoid hammingDistance throwing
+  const expectedLen = entries[0].fingerprint.length;
+  const mismatch = entries.find((e) => e.fingerprint.length !== expectedLen);
+  if (mismatch) {
+    throw new Error(
+      `groupPerceptual: fingerprint length mismatch — expected ${expectedLen}, got ${mismatch.fingerprint.length} for fileId ${mismatch.fileId}`,
+    );
+  }
+
   const assigned = new Set<number>();
   const clusters: MatchCluster[] = [];
 

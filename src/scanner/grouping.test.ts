@@ -87,4 +87,27 @@ describe('groupPerceptual', () => {
     expect(groupPerceptual(entries, 10)).toHaveLength(1);
     expect(groupPerceptual(entries, 9)).toHaveLength(0); // just outside threshold
   });
+
+  it('throws when fingerprint lengths differ', () => {
+    const entries: FingerprintEntry[] = [
+      { fileId: 1, fingerprint: '0000000000000000' },       // 16 chars
+      { fileId: 2, fingerprint: '00000000000000000000000000000000' }, // 32 chars
+    ];
+    expect(() => groupPerceptual(entries, 10)).toThrow('fingerprint length mismatch');
+  });
+
+  it('greedy clustering: assigns shared neighbor to first pivot only', () => {
+    // A is close to B (dist=1), B is close to C (dist=1), but A is far from C
+    // In greedy mode: A forms cluster with B; C is then isolated
+    const entries: FingerprintEntry[] = [
+      { fileId: 1, fingerprint: '0000000000000000' }, // A
+      { fileId: 2, fingerprint: '0000000000000001' }, // B — 1 bit from A
+      { fileId: 3, fingerprint: '0000000000000003' }, // C — 1 bit from B, 2 bits from A
+    ];
+    // All three are within threshold of each other (dist A-C = 2)
+    const groups = groupPerceptual(entries, 2);
+    // Greedy: A seeds, finds B (dist=1) and C (dist=2) → one cluster [A,B,C]
+    expect(groups).toHaveLength(1);
+    expect(groups[0].fileIds).toHaveLength(3);
+  });
 });
