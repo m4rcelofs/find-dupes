@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { createCacheStore } from '../cache/cacheStore.js';
 import { createReportServer } from './reportServer.js';
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 let store: ReturnType<typeof createCacheStore>;
 let app: ReturnType<typeof createReportServer>;
@@ -57,6 +59,17 @@ describe('POST /api/groups/:id/action', () => {
   });
 });
 
+describe('GET /api/groups/all', () => {
+  it('includes decided groups', async () => {
+    const { groupId, id1, id2 } = seedGroup();
+    store.saveReportAction(groupId, { [String(id1)]: 'keep', [String(id2)]: 'delete' });
+    const undecided = await request(app).get('/api/groups');
+    expect(undecided.body).toHaveLength(0);
+    const all = await request(app).get('/api/groups/all');
+    expect(all.body).toHaveLength(1);
+  });
+});
+
 describe('POST /api/commit', () => {
   it('returns dry-run list of files to delete', async () => {
     const { groupId, id1, id2 } = seedGroup();
@@ -65,5 +78,56 @@ describe('POST /api/commit', () => {
     expect(res.status).toBe(200);
     expect(res.body.dryRun).toBe(true);
     expect(res.body.wouldDelete).toContain('/b.jpg');
+  });
+
+  it('actually deletes files when dryRun is false', async () => {
+    const tmpDir = '/tmp/find-dupes-commit-test';
+    mkdirSync(tmpDir, { recursive: true });
+    const fileToDelete = join(tmpDir, 'to-delete.jpg');
+    writeFileSync(fileToDelete, 'fake image content');
+
+    const liveStore = createCacheStore(':memory:');
+    const liveApp = createReportServer({ store: liveStore, dryRun: false });
+    const id1 = liveStore.upsertFile({ path: join(tmpDir, 'keep.jpg'), size: 1000, mtime: 1, mimeType: 'image/jpeg' });
+    const id2 = liveStore.upsertFile({ path: fileToDelete, size: 800, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = liveStore.insertMatchGroup('exactHash', 'abc123', 100);
+    liveStore.insertMatchGroupMember(groupId, id1, 1000);
+    liveStore.insertMatchGroupMember(groupId, id2, 800);
+    liveStore.saveReportAction(groupId, { [String(id1)]: 'keep', [String(id2)]: 'delete' });
+
+    const res = await request(liveApp).post('/api/commit');
+    expect(res.status).toBe(200);
+    expect(res.body.dryRun).toBe(false);
+    expect(res.body.deleted).toContain(fileToDelete);
+    liveStore.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+describe('GET /api/media', () => {
+  it('returns 400 when no path provided', async () => {
+    const res = await request(app).get('/api/media');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when path is not absolute', async () => {
+    const res = await request(app).get('/api/media?path=relative/path.jpg');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when file not in store', async () => {
+    const res = await request(app).get('/api/media?path=/nonexistent/file.jpg');
+    expect(res.status).toBe(404);
+  });
+
+  it('serves file when found in store', async () => {
+    const tmpDir = '/tmp/find-dupes-media-test';
+    mkdirSync(tmpDir, { recursive: true });
+    const testFile = join(tmpDir, 'test.jpg');
+    writeFileSync(testFile, 'fake image bytes');
+    store.upsertFile({ path: testFile, size: 16, mtime: 1, mimeType: 'image/jpeg' });
+    const res = await request(app).get(`/api/media?path=${encodeURIComponent(testFile)}`);
+    expect(res.status).toBe(200);
+    rmSync(tmpDir, { recursive: true, force: true });
   });
 });
