@@ -4,15 +4,43 @@ import { lookup as mimeLookup } from 'mime-types';
 
 const SUPPORTED_MIME_PREFIXES = ['image/', 'video/'];
 
-// Some formats use non-standard vendor MIME types. Remap them to video/* so downstream
-// strategies that match on video/* wildcards work without special-casing each one.
+// Formats whose extensions have no registered MIME type (or a non-image/* vendor type)
+// are remapped here so downstream strategies that match image/* or video/* wildcards work.
 const MIME_REMAPS: Record<string, string> = {
-  'application/vnd.rn-realmedia': 'video/x-realmedia',
+  // RealMedia video
+  'application/vnd.rn-realmedia':     'video/x-realmedia',
   'application/vnd.rn-realmedia-vbr': 'video/x-realmedia-vbr',
 };
 
-const normalizeMime = (mime: string | false): string | false =>
-  mime !== false ? (MIME_REMAPS[mime] ?? mime) : false;
+// RAW camera formats have no registered MIME type — map by extension.
+// These resolve to image/x-<brand>-<ext> so image/* wildcards match them.
+const EXTENSION_REMAPS: Record<string, string> = {
+  '.nef': 'image/x-nikon-nef',       // Nikon
+  '.nrw': 'image/x-nikon-nrw',       // Nikon (compact)
+  '.cr2': 'image/x-canon-cr2',       // Canon
+  '.cr3': 'image/x-canon-cr3',       // Canon (newer)
+  '.arw': 'image/x-sony-arw',        // Sony
+  '.dng': 'image/x-adobe-dng',       // Adobe / Leica / Pentax / others
+  '.orf': 'image/x-olympus-orf',     // Olympus
+  '.rw2': 'image/x-panasonic-rw2',   // Panasonic
+  '.raf': 'image/x-fuji-raf',        // Fujifilm
+  '.pef': 'image/x-pentax-pef',      // Pentax
+  '.srw': 'image/x-samsung-srw',     // Samsung
+  '.x3f': 'image/x-sigma-x3f',       // Sigma
+  '.mrw': 'image/x-minolta-mrw',     // Minolta / Konica Minolta
+  '.rwl': 'image/x-leica-rwl',       // Leica
+  '.3fr': 'image/x-hasselblad-3fr',  // Hasselblad
+  '.mef': 'image/x-mamiya-mef',      // Mamiya
+  '.erf': 'image/x-epson-erf',       // Epson
+  '.kdc': 'image/x-kodak-kdc',       // Kodak
+  '.dcr': 'image/x-kodak-dcr',       // Kodak
+};
+
+const normalizeMime = (mime: string | false, ext: string): string | false => {
+  if (mime !== false && MIME_REMAPS[mime]) return MIME_REMAPS[mime];
+  if (EXTENSION_REMAPS[ext]) return EXTENSION_REMAPS[ext];
+  return mime;
+};
 
 const isSupportedMime = (mime: string | false): mime is string =>
   mime !== false && SUPPORTED_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix));
@@ -69,7 +97,8 @@ export const walkDirectory = async (
     if (!entry.isFile()) continue;
 
     const rawMime = mimeLookup(entry.name);
-    const mimeType = normalizeMime(rawMime);
+    const ext = entry.name.includes('.') ? `.${entry.name.split('.').pop()!.toLowerCase()}` : '';
+    const mimeType = normalizeMime(rawMime, ext);
     if (!isSupportedMime(mimeType)) {
       onSkipped?.({ path: fullPath, mimeType: rawMime });
       continue;
