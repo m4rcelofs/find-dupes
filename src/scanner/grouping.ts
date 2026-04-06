@@ -8,6 +8,11 @@ export type MatchCluster = {
   fileIds: number[];
 };
 
+/**
+ * Groups files with identical fingerprints. O(n) via Map.
+ * Only emits groups with 2+ members — singletons are not duplicates.
+ * Similarity score is always 100.
+ */
 export const groupExact = (entries: FingerprintEntry[]): MatchCluster[] => {
   const byFingerprint = new Map<string, number[]>();
   for (const { fileId, fingerprint } of entries) {
@@ -25,6 +30,23 @@ export const groupExact = (entries: FingerprintEntry[]): MatchCluster[] => {
   return clusters;
 };
 
+/**
+ * Clusters files whose fingerprints are within `threshold` Hamming distance of each other.
+ *
+ * Algorithm — greedy O(n²) pivot scan:
+ * 1. Iterate entries in order; skip already-assigned ones.
+ * 2. Treat the current entry as a pivot; add any unassigned entry within `threshold` to its cluster.
+ * 3. If the cluster has 2+ members, emit it and mark all members assigned.
+ *
+ * Not a global optimum — a file close to two pivots goes to the first one encountered.
+ * Fast and produces useful results in practice, since true near-duplicates cluster tightly.
+ *
+ * Throws if fingerprint lengths are inconsistent — this indicates a strategy bug
+ * (mixed hash sizes from different algorithm versions).
+ *
+ * Similarity score is derived from the minimum Hamming distance in the cluster (closest pair),
+ * giving the most conservative figure for the group.
+ */
 export const groupPerceptual = (entries: FingerprintEntry[], threshold: number): MatchCluster[] => {
   if (entries.length === 0) return [];
 

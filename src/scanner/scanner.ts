@@ -4,9 +4,17 @@ import { walkDirectory } from './fileWalker.js';
 import { groupExact, groupPerceptual } from './grouping.js';
 import { computeQualityScore } from './qualityScoring.js';
 
-// Strategies that produce match groups (metadata is enrichment-only)
+/**
+ * Strategy names that produce match groups. `metadata` is excluded — it is enrichment-only,
+ * used for quality scoring and UI display, not for identifying duplicates.
+ * Adding a new grouping strategy requires adding its name here.
+ */
 const GROUPING_STRATEGY_NAMES = new Set(['exactHash', 'perceptualImage', 'perceptualVideo', 'audioFingerprint']);
 
+/**
+ * Returns true if a strategy applies to the given MIME type.
+ * Handles both exact types (`image/jpeg`) and wildcard patterns (`image/*`).
+ */
 const strategyApplies = (strategy: Strategy, mimeType: string): boolean =>
   strategy.supportedMimeTypes.some((pattern) => {
     if (pattern.endsWith('/*')) return mimeType.startsWith(pattern.slice(0, -1));
@@ -21,6 +29,17 @@ type ScanOptions = {
   onProgress: (event: ScanProgressEvent) => void;
 };
 
+/**
+ * Full scan pipeline:
+ *
+ * 1. Walk `rootDir` and collect all live image/video files.
+ * 2. Soft-delete DB records for files no longer on disk.
+ * 3. Fingerprint each file — cache hits only run strategies with no existing result
+ *    (handles newly added strategies); cache misses invalidate stale results and run all strategies.
+ *    Strategy failures are swallowed silently (e.g. fpcalc not installed, corrupt file).
+ * 4. For each grouping strategy: clear previous groups, cluster current fingerprints,
+ *    insert groups and members with quality scores.
+ */
 export const runScan = async ({ rootDir, store, strategies, threshold, onProgress }: ScanOptions): Promise<void> => {
   // Step 1: Walk directory and collect all live files
   const liveFiles: Array<{ path: string; size: number; mtime: number; mimeType: string }> = [];

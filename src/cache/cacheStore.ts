@@ -9,7 +9,7 @@ const MIGRATIONS = `
     mtime INTEGER NOT NULL,
     mime_type TEXT NOT NULL,
     scanned_at INTEGER NOT NULL,
-    deleted INTEGER NOT NULL DEFAULT 0
+    deleted INTEGER NOT NULL DEFAULT 0  -- soft delete: 1 = no longer on disk
   );
 
   CREATE TABLE IF NOT EXISTS strategy_results (
@@ -19,7 +19,7 @@ const MIGRATIONS = `
     fingerprint TEXT NOT NULL,
     metadata_json TEXT NOT NULL DEFAULT '{}',
     computed_at INTEGER NOT NULL,
-    UNIQUE(file_id, strategy)
+    UNIQUE(file_id, strategy)  -- safe upserts; re-running a strategy overwrites the old result
   );
 
   CREATE TABLE IF NOT EXISTS match_groups (
@@ -28,6 +28,7 @@ const MIGRATIONS = `
     representative_fingerprint TEXT NOT NULL,
     similarity_score REAL NOT NULL,
     created_at INTEGER NOT NULL
+    -- rebuilt from scratch on every scan; not persisted incrementally
   );
 
   CREATE TABLE IF NOT EXISTS match_group_members (
@@ -40,11 +41,13 @@ const MIGRATIONS = `
   CREATE TABLE IF NOT EXISTS report_actions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     group_id INTEGER NOT NULL UNIQUE REFERENCES match_groups(id) ON DELETE CASCADE,
-    decisions_json TEXT NOT NULL,
+    decisions_json TEXT NOT NULL,  -- Record<string, Decision>, keys are string file IDs
     decided_at INTEGER NOT NULL
+    -- UNIQUE(group_id): re-deciding a group uses ON CONFLICT DO UPDATE
   );
 `;
 
+/** Structural type of the cache store — derived automatically from the factory return. */
 export type CacheStore = ReturnType<typeof createCacheStore>;
 
 export const createCacheStore = (dbPath: string) => {
@@ -55,6 +58,10 @@ export const createCacheStore = (dbPath: string) => {
 
   const now = () => Date.now();
 
+  /**
+   * Atomically insert or update a file record and return its row ID.
+   * Uses a single `INSERT ... ON CONFLICT DO UPDATE ... RETURNING id` — no separate SELECT.
+   */
   const upsertFile = (file: { path: string; size: number; mtime: number; mimeType: string }): number => {
     const row = db.prepare(`
       INSERT INTO files (path, size, mtime, mime_type, scanned_at, deleted)
@@ -89,10 +96,16 @@ export const createCacheStore = (dbPath: string) => {
     return row ? rowToFileInfo(row) : undefined;
   };
 
+  /** Deletes all strategy_results for a file. Called when size/mtime changed — cached fingerprints are stale. */
   const invalidateFile = (fileId: number): void => {
     db.prepare('DELETE FROM strategy_results WHERE file_id = ?').run(fileId);
   };
 
+  /**
+   * Marks files as deleted if their path is not in `livePaths`.
+   * Called at scan start with the set of paths currently on disk.
+   * Runs in a transaction to keep the batch update atomic.
+   */
   const markDeletedExcept = (livePaths: Set<string>): void => {
     const allFiles = db.prepare('SELECT id, path FROM files WHERE deleted = 0').all() as { id: number; path: string }[];
     const stmt = db.prepare('UPDATE files SET deleted = 1 WHERE id = ?');
@@ -166,6 +179,13 @@ export const createCacheStore = (dbPath: string) => {
     ).run(groupId, fileId, qualityScore);
   };
 
+  /**
+   * Returns groups with all their members, file info, and metadata joined in.
+   * Members are ordered by quality_score DESC (best copy first).
+   *
+   * @param undecidedOnly When true (default for the UI review queue), excludes groups
+   *   that already have a report_actions record.
+   */
   const getGroupsWithMembers = (undecidedOnly = false): GroupWithMembers[] => {
     let groupQuery = 'SELECT * FROM match_groups';
     if (undecidedOnly) {
@@ -214,6 +234,7 @@ export const createCacheStore = (dbPath: string) => {
     });
   };
 
+  /** Saves (or overwrites) a user's decision for a group. */
   const saveReportAction = (groupId: number, decisions: Record<string, Decision>): void => {
     db.prepare(`
       INSERT INTO report_actions (group_id, decisions_json, decided_at)
@@ -224,6 +245,10 @@ export const createCacheStore = (dbPath: string) => {
     `).run(groupId, JSON.stringify(decisions), now());
   };
 
+  /**
+   * Returns paths of all non-deleted files marked `'delete'` across all decided groups.
+   * Used by POST /api/commit to build the list of files to unlink.
+   */
   const getPendingDeletes = (): string[] => {
     const rows = db.prepare(`
       SELECT DISTINCT f.path, f.id as file_id, ra.decisions_json

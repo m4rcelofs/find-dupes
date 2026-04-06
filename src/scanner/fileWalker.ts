@@ -14,6 +14,16 @@ export type WalkedFile = {
   mimeType: string;
 };
 
+/**
+ * Recursively walks `dir` and calls `onFile` for each supported image or video file.
+ *
+ * Rules:
+ * - Dot files and dot directories are skipped (`.DS_Store`, `.Trash`, `.find-dupes.db`, etc.).
+ * - Symlinks are skipped — detected via `lstat` to avoid infinite loops and files outside the root.
+ * - Only `image/*` and `video/*` MIME types are yielded, inferred from extension via `mime-types`.
+ *   Covers JPEG, PNG, WebP, HEIC, GIF, TIFF, MP4, MOV, AVI, MKV, WebM, MPEG, and more.
+ * - `size` and `mtime` reuse the `lstat` result from the symlink check — no redundant stat call.
+ */
 export const walkDirectory = async (
   dir: string,
   onFile: (file: WalkedFile) => void,

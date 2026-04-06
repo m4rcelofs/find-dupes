@@ -14,6 +14,22 @@ const defaultRunFpcalc: RunFpcalcFn = async (path) => {
   return match[1].trim();
 };
 
+/**
+ * Audio fingerprint strategy using Chromaprint (`fpcalc`).
+ *
+ * Chromaprint decodes the audio stream to PCM, computes a spectrogram over short
+ * overlapping frames, then applies image-filter-like operations to produce a compact
+ * array of 32-bit integers — the raw fingerprint. Stored as a comma-separated string.
+ *
+ * Finds videos that share the same audio track regardless of visual re-encoding,
+ * resolution changes, or container format. Complements `perceptualVideo` for cases
+ * where sampled keyframes don't overlap between two cuts of the same video.
+ *
+ * Requires `fpcalc` on $PATH (part of Chromaprint — see README for install instructions).
+ * If unavailable, the strategy throws and the scanner silently skips it for that file.
+ *
+ * `runFpcalc` is injectable for testing — pass a mock to avoid requiring fpcalc in CI.
+ */
 export const createAudioFingerprintStrategy = (
   { runFpcalc = defaultRunFpcalc }: { runFpcalc?: RunFpcalcFn } = {},
 ): Strategy => ({

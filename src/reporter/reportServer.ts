@@ -14,6 +14,26 @@ type ReportServerOptions = {
   dryRun: boolean;
 };
 
+/**
+ * Creates the Express report server.
+ *
+ * Routes:
+ * - `GET  /api/groups`         — undecided groups with members, ordered by quality score DESC.
+ * - `GET  /api/groups/all`     — all groups including already-decided ones.
+ * - `POST /api/groups/:id/action` — save `{ decisions: Record<string, Decision> }` for a group.
+ *   Overwrites any previous decision. Returns 400 for invalid group ID or missing body.
+ * - `POST /api/commit`         — unlink all files marked 'delete' across decided groups.
+ *   In dry-run mode returns `{ dryRun: true, wouldDelete: string[] }` without touching disk.
+ *   In live mode returns `{ dryRun: false, deleted: string[], errors: { path, error }[] }`;
+ *   failures are per-file, not batch-aborting.
+ * - `GET  /api/media?path=...` — serve a file for `<img>`/`<video>` preview. Only serves paths
+ *   known to the database (arbitrary paths return 404; non-absolute paths return 400).
+ *
+ * Serves the built Svelte UI from `ui/dist/` as static files if the directory exists.
+ *
+ * Security: intended for local use only. `/api/media` is restricted to DB-known paths,
+ * but the server has no authentication. Do not expose on a public network interface.
+ */
 export const createReportServer = ({ store, dryRun }: ReportServerOptions): Express => {
   const app = express();
   app.use(express.json());

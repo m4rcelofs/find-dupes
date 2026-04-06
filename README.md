@@ -101,19 +101,9 @@ The scan is incremental: if you add files to a directory and re-scan, only the n
 
 Decisions made in the report UI are saved to the database immediately. The `Commit Deletes` button performs the actual file deletions (or prints a dry-run summary with `--dry-run`).
 
-## Technical documentation
+## Further reading
 
 | File | Description |
 |---|---|
-| [src/cache/cacheStore.md](src/cache/cacheStore.md) | SQLite schema and cache layer |
-| [src/scanner/scanner.md](src/scanner/scanner.md) | Scan pipeline orchestration |
-| [src/scanner/fileWalker.md](src/scanner/fileWalker.md) | Directory walking |
-| [src/scanner/grouping.md](src/scanner/grouping.md) | Exact and perceptual clustering |
-| [src/scanner/qualityScoring.md](src/scanner/qualityScoring.md) | Best-copy scoring |
-| [src/strategies/exactHash.md](src/strategies/exactHash.md) | SHA-256 exact match strategy |
-| [src/strategies/perceptualImage.md](src/strategies/perceptualImage.md) | dHash perceptual image strategy |
-| [src/strategies/perceptualVideo.md](src/strategies/perceptualVideo.md) | Keyframe dHash video strategy |
-| [src/strategies/metadata.md](src/strategies/metadata.md) | Metadata extraction strategy |
-| [src/strategies/audioFingerprint.md](src/strategies/audioFingerprint.md) | Chromaprint audio fingerprint strategy |
-| [src/reporter/reportServer.md](src/reporter/reportServer.md) | Express API server |
-| [src/reporter/ui/README.md](src/reporter/ui/README.md) | Svelte 5 web UI |
+| [src/cache/cacheStore.md](src/cache/cacheStore.md) | Why SQLite, WAL mode, and the re-cluster-on-scan design |
+| [src/reporter/ui/README.md](src/reporter/ui/README.md) | Svelte 5 UI structure and dev workflow |

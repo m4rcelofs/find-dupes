@@ -5,6 +5,11 @@ import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Strategy, StrategyResult, FileInfo } from '../types.js';
 
+/**
+ * Number of evenly-spaced frames extracted per video.
+ * 4 frames captures opening, two midpoints, and near-end — enough to distinguish
+ * different content without slowing scans significantly.
+ */
 const FRAME_COUNT = 4;
 
 type ExtractFramesFn = (videoPath: string, frameCount: number) => Promise<Buffer[]>;
@@ -35,6 +40,11 @@ const defaultExtractFrames: ExtractFramesFn = (videoPath, frameCount) =>
       });
   });
 
+/**
+ * Compute dHash for a single frame buffer.
+ * On sharp failure (corrupt frame, unsupported pixel format), logs a warning and
+ * returns an all-zero hash so the overall fingerprint remains usable.
+ */
 const dHashFromBuffer = async (buf: Buffer): Promise<string> => {
   try {
     const { data } = await sharp(buf)
@@ -58,6 +68,23 @@ const dHashFromBuffer = async (buf: Buffer): Promise<string> => {
   }
 };
 
+/**
+ * Perceptual video strategy using keyframe dHash.
+ *
+ * Algorithm:
+ * 1. Extract `FRAME_COUNT` evenly-spaced frames via ffmpeg into a temp directory.
+ * 2. dHash each frame (same algorithm as `perceptualImage`).
+ * 3. Concatenate the per-frame hashes into a single fingerprint.
+ *
+ * Fingerprint: 64 hex chars = 256 bits (4 frames × 16 chars each).
+ * Similarity uses `bits=256` as the denominator in `hammingToSimilarity`.
+ *
+ * Finds: same video at different resolutions/bitrates, different container formats,
+ * re-encoded copies, slightly trimmed versions (if sampled frames overlap).
+ * Does not reliably find: heavily edited videos, very short clips (< a few seconds).
+ *
+ * `extractFrames` is injectable for testing — pass a mock to avoid requiring ffmpeg in CI.
+ */
 export const createPerceptualVideoStrategy = (
   { extractFrames = defaultExtractFrames }: { extractFrames?: ExtractFramesFn } = {},
 ): Strategy => ({
