@@ -105,7 +105,6 @@ Decisions made in the report UI are saved to the database immediately. The `Comm
 
 | File | Description |
 |---|---|
-| [src/types.md](src/types.md) | Shared TypeScript types |
 | [src/cache/cacheStore.md](src/cache/cacheStore.md) | SQLite schema and cache layer |
 | [src/scanner/scanner.md](src/scanner/scanner.md) | Scan pipeline orchestration |
 | [src/scanner/fileWalker.md](src/scanner/fileWalker.md) | Directory walking |
