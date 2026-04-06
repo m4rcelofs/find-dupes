@@ -25,7 +25,10 @@ type ScanOptions = {
   rootDir: string;
   store: CacheStore;
   strategies: Strategy[];
-  threshold: number;
+  /** Per-strategy Hamming distance thresholds. Keyed by strategy name; falls back to 10 if absent. */
+  thresholds: Record<string, number>;
+  /** When true, ignore cached fingerprints and re-run all strategies on every file. */
+  force?: boolean;
   onProgress: (event: ScanProgressEvent) => void;
 };
 
@@ -40,7 +43,7 @@ type ScanOptions = {
  * 4. For each grouping strategy: clear previous groups, cluster current fingerprints,
  *    insert groups and members with quality scores.
  */
-export const runScan = async ({ rootDir, store, strategies, threshold, onProgress }: ScanOptions): Promise<void> => {
+export const runScan = async ({ rootDir, store, strategies, thresholds, force = false, onProgress }: ScanOptions): Promise<void> => {
   // Step 1: Walk directory and collect all live files
   const liveFiles: Array<{ path: string; size: number; mtime: number; mimeType: string }> = [];
   await walkDirectory(rootDir, (f) => liveFiles.push(f));
@@ -57,7 +60,7 @@ export const runScan = async ({ rootDir, store, strategies, threshold, onProgres
     const existing = store.getFileByPath(walkedFile.path);
     let fileId: number;
 
-    if (existing && existing.size === walkedFile.size && existing.mtime === walkedFile.mtime) {
+    if (!force && existing && existing.size === walkedFile.size && existing.mtime === walkedFile.mtime) {
       // File unchanged — only run strategies that don't have a cached result yet
       fileId = existing.id;
       const missingStrategies = strategies.filter(
@@ -103,7 +106,7 @@ export const runScan = async ({ rootDir, store, strategies, threshold, onProgres
     const clusters =
       strategy.name === 'exactHash'
         ? groupExact(liveResults)
-        : groupPerceptual(liveResults, threshold);
+        : groupPerceptual(liveResults, thresholds[strategy.name] ?? 10);
 
     for (const cluster of clusters) {
       const groupId = store.insertMatchGroup(
@@ -125,5 +128,6 @@ export const runScan = async ({ rootDir, store, strategies, threshold, onProgres
   }
 
   const groups = store.getGroupsWithMembers();
-  onProgress({ type: 'groups', count: groups.length });
+  const fileCount = groups.reduce((sum, g) => sum + g.members.length, 0);
+  onProgress({ type: 'groups', count: groups.length, fileCount });
 };

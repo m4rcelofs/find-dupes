@@ -79,4 +79,4 @@ export type ReportAction = {
 
 export type ScanProgressEvent =
   | { type: 'file'; path: string; current: number; total?: number }
-  | { type: 'groups'; count: number };
+  | { type: 'groups'; count: number; fileCount: number };

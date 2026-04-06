@@ -49,7 +49,9 @@ find-dupes scan /Volumes/Photos
 | Flag | Default | Description |
 |---|---|---|
 | `--strategies <list>` | `all` | Comma-separated strategies to run: `exact`, `perceptual`, `metadata`, `audio`, or `all` |
-| `--threshold <n>` | `10` | Perceptual Hamming distance threshold (0–64). Lower = stricter matching. |
+| `--image-threshold <n>` | `10` | Hamming distance threshold for perceptual image matching (0–64) |
+| `--video-threshold <n>` | `10` | Hamming distance threshold for perceptual video matching (0–256) |
+| `--audio-threshold <n>` | `500` | Hamming distance threshold for audio fingerprint matching (0–7680) |
 | `--db <path>` | `<root-dir>/.find-dupes.db` | Path to the SQLite database |
 
 **Examples:**
@@ -58,11 +60,14 @@ find-dupes scan /Volumes/Photos
 # Only exact duplicates, custom DB location
 find-dupes scan ~/Photos --strategies exact --db ~/Photos/dupes.db
 
-# Perceptual + exact, stricter threshold
-find-dupes scan ~/Photos --strategies exact,perceptual --threshold 5
+# Perceptual + exact, stricter image threshold
+find-dupes scan ~/Photos --strategies exact,perceptual --image-threshold 5
 
 # All strategies
 find-dupes scan ~/Photos --strategies all
+
+# Looser audio matching (more tolerant of re-encodes)
+find-dupes scan ~/Videos --strategies audio --audio-threshold 1000
 ```
 
 **Strategies:**
@@ -73,6 +78,18 @@ find-dupes scan ~/Photos --strategies all
 | `perceptual` | Visually similar images or videos (dHash algorithm) |
 | `metadata` | Files with identical dimensions/duration/bitrate |
 | `audio` | Videos with the same audio track (Chromaprint/fpcalc) |
+
+**Threshold → similarity %**
+
+Each threshold is a maximum Hamming distance. To convert to a minimum similarity percentage:
+
+| Strategy | Fingerprint size | Formula | Default threshold | Default min similarity |
+|---|---|---|---|---|
+| `perceptualImage` | 64 bits | `(64 − t) / 64 × 100` | 10 | ≥ 84.4% |
+| `perceptualVideo` | 256 bits | `(256 − t) / 256 × 100` | 10 | ≥ 96.1% |
+| `audioFingerprint` | 7680 bits | `(7680 − t) / 7680 × 100` | 500 | ≥ 93.5% |
+
+A threshold of `0` means only exact matches; the maximum threshold for each strategy is its fingerprint size in bits.
 
 ### `unsupported <root-dir>`
 
@@ -108,7 +125,7 @@ find-dupes report --db /Volumes/Photos/.find-dupes.db
 |---|---|---|
 | `--db <path>` | `.find-dupes.db` | Path to the SQLite database from a previous scan |
 | `--port <n>` | `3000` | Port to listen on |
-| `--dry-run` | off | Log what would be deleted without actually deleting |
+| `--dry-run` | off | Log what would be trashed without moving anything |
 
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
 

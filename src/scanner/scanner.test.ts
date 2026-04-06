@@ -29,7 +29,7 @@ it('detects exact duplicate images', async () => {
     rootDir: root,
     store,
     strategies: [createExactHashStrategy()],
-    threshold: 10,
+    thresholds: {},
     onProgress: () => {},
   });
 
@@ -54,11 +54,11 @@ it('skips unchanged files on re-scan (caches correctly)', async () => {
     },
   };
 
-  await runScan({ rootDir: root, store, strategies: [trackingStrategy], threshold: 10, onProgress: () => {} });
+  await runScan({ rootDir: root, store, strategies: [trackingStrategy], thresholds: {}, onProgress: () => {} });
   const firstCount = callCount;
 
   // Re-scan without modifying the file
-  await runScan({ rootDir: root, store, strategies: [trackingStrategy], threshold: 10, onProgress: () => {} });
+  await runScan({ rootDir: root, store, strategies: [trackingStrategy], thresholds: {}, onProgress: () => {} });
 
   // Strategy should not have been called again for the unchanged file
   expect(callCount).toBe(firstCount);
@@ -70,11 +70,11 @@ it('marks deleted files that no longer exist on re-scan', async () => {
   copyFileSync(join(FIXTURES, 'blue-10x10.png'), join(root, 'b.png'));
 
   const store = createCacheStore(dbPath);
-  await runScan({ rootDir: root, store, strategies: [createExactHashStrategy()], threshold: 10, onProgress: () => {} });
+  await runScan({ rootDir: root, store, strategies: [createExactHashStrategy()], thresholds: {}, onProgress: () => {} });
 
   // Remove b.png and rescan
   rmSync(join(root, 'b.png'));
-  await runScan({ rootDir: root, store, strategies: [createExactHashStrategy()], threshold: 10, onProgress: () => {} });
+  await runScan({ rootDir: root, store, strategies: [createExactHashStrategy()], thresholds: {}, onProgress: () => {} });
 
   const deletedFile = store.getFileByPath(join(root, 'b.png'));
   expect(deletedFile?.deleted).toBe(true);
@@ -93,7 +93,7 @@ it('runs missing strategy on unchanged file without re-running existing ones', a
   };
 
   // First scan: only strategy1
-  await runScan({ rootDir: root, store, strategies: [tracking1], threshold: 10, onProgress: () => {} });
+  await runScan({ rootDir: root, store, strategies: [tracking1], thresholds: {}, onProgress: () => {} });
   expect(s1Calls).toBe(1);
 
   // Second scan: add a second strategy — strategy1 should NOT re-run (result already cached)
@@ -104,7 +104,7 @@ it('runs missing strategy on unchanged file without re-running existing ones', a
     analyze: async (f: Parameters<typeof strategy2.analyze>[0]) => { s2Calls++; return strategy2.analyze(f); },
   };
 
-  await runScan({ rootDir: root, store, strategies: [tracking1, tracking2], threshold: 10, onProgress: () => {} });
+  await runScan({ rootDir: root, store, strategies: [tracking1, tracking2], thresholds: {}, onProgress: () => {} });
   expect(s1Calls).toBe(1); // not called again
   expect(s2Calls).toBe(1); // called once for the new strategy
   store.close();
@@ -119,7 +119,7 @@ it('emits progress events', async () => {
     rootDir: root,
     store,
     strategies: [createExactHashStrategy()],
-    threshold: 10,
+    thresholds: {},
     onProgress: (e) => events.push(e.type),
   });
 

@@ -39,18 +39,35 @@ program
   .command('scan <root-dir>')
   .description('Fingerprint files and group duplicates')
   .option('--strategies <list>', 'Comma-separated: exact,perceptual,metadata,audio or "all"', 'all')
-  .option('--threshold <n>', 'Perceptual hamming distance threshold (0-64)', (v) => {
+  .option('--image-threshold <n>', 'Hamming distance threshold for perceptual images (0-64)', (v) => {
     const n = parseInt(v, 10);
     if (isNaN(n) || n < 0 || n > 64) throw new InvalidArgumentError('Must be an integer between 0 and 64.');
     return n;
   }, 10)
+  .option('--video-threshold <n>', 'Hamming distance threshold for perceptual video (0-256)', (v) => {
+    const n = parseInt(v, 10);
+    if (isNaN(n) || n < 0 || n > 256) throw new InvalidArgumentError('Must be an integer between 0 and 256.');
+    return n;
+  }, 10)
+  .option('--audio-threshold <n>', 'Hamming distance threshold for audio fingerprint (0-7680)', (v) => {
+    const n = parseInt(v, 10);
+    if (isNaN(n) || n < 0 || n > 7680) throw new InvalidArgumentError('Must be an integer between 0 and 7680.');
+    return n;
+  }, 500)
   .option('--db <path>', 'SQLite database path (default: <root-dir>/.find-dupes.db)')
-  .action(async (rootDir: string, opts: { strategies: string; threshold: number; db?: string }) => {
+  .option('--force', 'Ignore cached fingerprints and re-run all strategies on every file', false)
+  .action(async (rootDir: string, opts: { strategies: string; imageThreshold: number; videoThreshold: number; audioThreshold: number; db?: string; force: boolean }) => {
     const absRoot = resolve(rootDir);
     const dbPath = opts.db ?? `${absRoot}/.find-dupes.db`;
 
     const store = createCacheStore(dbPath);
     const strategies = buildStrategies(opts.strategies, program);
+
+    const thresholds: Record<string, number> = {
+      perceptualImage: opts.imageThreshold,
+      perceptualVideo: opts.videoThreshold,
+      audioFingerprint: opts.audioThreshold,
+    };
 
     let lastLine = '';
     const onProgress = (event: ScanProgressEvent) => {
@@ -60,12 +77,13 @@ program
         lastLine = line;
       } else {
         process.stdout.write('\n');
-        console.log(`\nDone. Found ${event.count} duplicate group(s).`);
+        const dupeWord = event.fileCount === 1 ? 'file' : 'files';
+        console.log(`\nDone. Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
       }
     };
 
     try {
-      await runScan({ rootDir: absRoot, store, strategies, threshold: opts.threshold, onProgress });
+      await runScan({ rootDir: absRoot, store, strategies, thresholds, force: opts.force, onProgress });
     } finally {
       store.close();
     }
@@ -112,7 +130,7 @@ program
     return n;
   }, 3000)
   .option('--db <path>', 'SQLite database path', '.find-dupes.db')
-  .option('--dry-run', 'Log deletes without executing them', false)
+  .option('--dry-run', 'Log files that would be trashed without moving them', false)
   .action(async (opts: { port: number; db: string; dryRun: boolean }) => {
     const store = createCacheStore(resolve(opts.db));
     const server = createReportServer({ store, dryRun: opts.dryRun });

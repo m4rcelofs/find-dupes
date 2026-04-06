@@ -1,5 +1,5 @@
 import express, { type Express } from 'express';
-import { unlink } from 'node:fs/promises';
+import trash from 'trash';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { isAbsolute } from 'node:path';
@@ -22,7 +22,7 @@ type ReportServerOptions = {
  * - `GET  /api/groups/all`     — all groups including already-decided ones.
  * - `POST /api/groups/:id/action` — save `{ decisions: Record<string, Decision> }` for a group.
  *   Overwrites any previous decision. Returns 400 for invalid group ID or missing body.
- * - `POST /api/commit`         — unlink all files marked 'delete' across decided groups.
+ * - `POST /api/commit`         — move all files marked 'delete' to the system trash.
  *   In dry-run mode returns `{ dryRun: true, wouldDelete: string[] }` without touching disk.
  *   In live mode returns `{ dryRun: false, deleted: string[], errors: { path, error }[] }`;
  *   failures are per-file, not batch-aborting.
@@ -76,7 +76,7 @@ export const createReportServer = ({ store, dryRun }: ReportServerOptions): Expr
     const errors: Array<{ path: string; error: string }> = [];
     for (const filePath of pending) {
       try {
-        await unlink(filePath);
+        await trash(filePath);
         deleted.push(filePath);
       } catch (e) {
         errors.push({ path: filePath, error: String(e) });
