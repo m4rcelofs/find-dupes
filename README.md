@@ -116,14 +116,14 @@ Useful for auditing a directory before scanning, or for identifying formats wort
 Starts a local web server to review duplicate groups and commit deletions.
 
 ```bash
-find-dupes report --db /Volumes/Photos/.find-dupes.db
+find-dupes report /Volumes/Photos
 ```
 
 **Options:**
 
 | Flag | Default | Description |
 |---|---|---|
-| `--db <path>` | `.find-dupes.db` | Path to the SQLite database from a previous scan |
+| `--db <path>` | `<root-dir>/.find-dupes.db` | Path to the SQLite database from a previous scan |
 | `--port <n>` | `3000` | Port to listen on |
 | `--dry-run` | off | Log what would be trashed without moving anything |
 

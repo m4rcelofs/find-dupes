@@ -18,6 +18,13 @@ export const saveAction = async (
   if (!res.ok) throw new Error('Failed to save action');
 };
 
+export const fetchPendingCount = async (): Promise<number> => {
+  const res = await fetch('/api/pending-count');
+  if (!res.ok) throw new Error('Failed to fetch pending count');
+  const data = await res.json() as { count: number };
+  return data.count;
+};
+
 export const commitDeletes = async (): Promise<{ dryRun: boolean; deleted?: string[]; wouldDelete?: string[] }> => {
   const res = await fetch('/api/commit', { method: 'POST' });
   if (!res.ok) throw new Error('Failed to commit');

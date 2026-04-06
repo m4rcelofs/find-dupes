@@ -1,12 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fetchGroups, commitDeletes } from './lib/api.js';
+  import { fetchGroups, commitDeletes, fetchPendingCount } from './lib/api.js';
   import GroupView from './lib/GroupView.svelte';
   import type { GroupWithMembers } from '../../../types.js';
 
   let groups = $state<GroupWithMembers[]>([]);
   let currentIndex = $state(0);
   let status = $state('');
+  let pendingCount = $state(0);
+
+  const refreshPendingCount = async () => {
+    try { pendingCount = await fetchPendingCount(); } catch { /* ignore */ }
+  };
 
   onMount(async () => {
     try {
@@ -14,6 +19,7 @@
     } catch (e) {
       status = `Failed to load groups: ${e}`;
     }
+    await refreshPendingCount();
   });
 
   const currentGroup = $derived(groups[currentIndex]);
@@ -21,6 +27,7 @@
 
   const onDecided = () => {
     currentIndex += 1;
+    refreshPendingCount();
   };
 
   const onCommit = async () => {
@@ -29,8 +36,9 @@
       if (result.dryRun) {
         status = `Dry run — would delete: ${result.wouldDelete?.join(', ')}`;
       } else {
-        status = `Deleted ${result.deleted?.length ?? 0} file(s).`;
+        status = `Moved ${result.deleted?.length ?? 0} file(s) to trash.`;
       }
+      await refreshPendingCount();
     } catch (e) {
       status = `Commit failed: ${e}`;
     }
@@ -41,7 +49,9 @@
   <header>
     <h1>find-dupes</h1>
     <span>{remaining} group(s) remaining</span>
-    <button onclick={onCommit}>Commit Deletes</button>
+    <button onclick={onCommit} disabled={pendingCount === 0}>
+      Commit Deletes{pendingCount > 0 ? ` (${pendingCount})` : ''}
+    </button>
   </header>
 
   {#if status}

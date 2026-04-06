@@ -6,7 +6,8 @@
     "find-dupes": "./dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:scanner && npm run build:ui",
+    "build:scanner": "tsc",
     "build:ui": "vite build --config src/reporter/ui/vite.config.ts",
     "dev:ui": "vite dev --config src/reporter/ui/vite.config.ts",
     "test": "vitest run",

@@ -1,13 +1,12 @@
 import express, { type Express } from 'express';
 import trash from 'trash';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { isAbsolute } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CacheStore } from '../cache/cacheStore.js';
 import type { Decision } from '../types.js';
 
-const UI_DIST = join(fileURLToPath(import.meta.url), '../../reporter/ui/dist');
+const UI_DIST = join(dirname(fileURLToPath(import.meta.url)), 'ui/dist');
 
 type ReportServerOptions = {
   store: CacheStore;
@@ -66,6 +65,10 @@ export const createReportServer = ({ store, dryRun }: ReportServerOptions): Expr
     res.json({ ok: true });
   });
 
+  app.get('/api/pending-count', (_req, res) => {
+    res.json({ count: store.getPendingDeletes().length });
+  });
+
   app.post('/api/commit', async (_req, res) => {
     const pending = store.getPendingDeletes();
     if (dryRun) {
@@ -77,6 +80,7 @@ export const createReportServer = ({ store, dryRun }: ReportServerOptions): Expr
     for (const filePath of pending) {
       try {
         await trash(filePath);
+        store.markFileDeletedByPath(filePath);
         deleted.push(filePath);
       } catch (e) {
         errors.push({ path: filePath, error: String(e) });

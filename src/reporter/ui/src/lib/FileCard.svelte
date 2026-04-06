@@ -8,9 +8,10 @@
     onKeep: () => void;
     onDelete: () => void;
     isBest: boolean;
+    showBadge: boolean;
   };
 
-  const { member, decision, onKeep, onDelete, isBest }: Props = $props();
+  const { member, decision, onKeep, onDelete, isBest, showBadge }: Props = $props();
 
   const formatSize = (bytes: number) =>
     bytes > 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${(bytes / 1000).toFixed(0)} KB`;
@@ -25,6 +26,8 @@
   const isVideo = $derived(member.file.mimeType.startsWith('video/'));
   const src = $derived(mediaUrl(member.file.path));
   const badge = $derived(isBest ? 'Best' : member.metadata?.width ? 'Lower res' : 'Smaller');
+  const pathParts = $derived(member.file.path.split('/').filter(Boolean));
+  const shortPath = $derived(pathParts.slice(-3).join('/'));
 </script>
 
 <div class="card" class:keep={decision === 'keep'} class:delete={decision === 'delete'}>
@@ -39,9 +42,9 @@
   </div>
 
   <div class="details">
-    <span class="badge" class:best={isBest}>{badge}</span>
+    {#if showBadge}<span class="badge" class:best={isBest}>{badge}</span>{/if}
     <a href={`file://${member.file.path}`} target="_blank" title={member.file.path} class="path">
-      {member.file.path.split('/').at(-1)}
+      {shortPath}
     </a>
     <ul>
       {#if member.metadata?.width && member.metadata?.height}
@@ -72,7 +75,7 @@
   .details { padding: 0.75rem; font-size: 0.8rem; }
   .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #333; }
   .badge.best { background: #2a6; }
-  .path { display: block; margin: 0.4rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #88aaff; text-decoration: none; }
+  .path { display: block; margin: 0.4rem 0; color: #88aaff; text-decoration: none; word-break: break-all; }
   ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; opacity: 0.7; }
   .actions { display: flex; gap: 0.5rem; padding: 0.5rem 0.75rem; border-top: 1px solid #222; }
   .keep-btn, .del-btn { flex: 1; padding: 0.4rem; border: 1px solid #444; background: transparent; color: #ccc; border-radius: 4px; cursor: pointer; }

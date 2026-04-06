@@ -78,7 +78,11 @@ program
       } else {
         process.stdout.write('\n');
         const dupeWord = event.fileCount === 1 ? 'file' : 'files';
-        console.log(`\nDone. Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
+        console.log(`\nScanned ${event.totalFiles} file(s). Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
+        const reportCmd = opts.db
+          ? `find-dupes report --db ${dbPath}`
+          : `find-dupes report ${absRoot}`;
+        console.log(`\nTo review: ${reportCmd}`);
       }
     };
 
@@ -122,17 +126,21 @@ program
   });
 
 program
-  .command('report')
+  .command('report [root-dir]')
   .description('Launch web UI to review and delete duplicates')
   .option('--port <n>', 'Port to listen on', (v) => {
     const n = parseInt(v, 10);
     if (isNaN(n) || n < 1 || n > 65535) throw new InvalidArgumentError('Must be an integer between 1 and 65535.');
     return n;
   }, 3000)
-  .option('--db <path>', 'SQLite database path', '.find-dupes.db')
+  .option('--db <path>', 'SQLite database path (default: <root-dir>/.find-dupes.db)')
   .option('--dry-run', 'Log files that would be trashed without moving them', false)
-  .action(async (opts: { port: number; db: string; dryRun: boolean }) => {
-    const store = createCacheStore(resolve(opts.db));
+  .option('--force', 'Clear all saved review decisions and start over', false)
+  .action(async (rootDir: string | undefined, opts: { port: number; db?: string; dryRun: boolean; force: boolean }) => {
+    const absRoot = rootDir ? resolve(rootDir) : process.cwd();
+    const dbPath = opts.db ?? `${absRoot}/.find-dupes.db`;
+    const store = createCacheStore(resolve(dbPath));
+    if (opts.force) store.clearReportActions();
     const server = createReportServer({ store, dryRun: opts.dryRun });
     server.listen(opts.port, () => {
       console.log(`Report server running at http://localhost:${opts.port}`);

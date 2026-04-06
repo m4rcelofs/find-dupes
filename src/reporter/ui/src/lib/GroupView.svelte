@@ -10,7 +10,20 @@
 
   const { group, onDecided }: Props = $props();
 
-  let decisions = $state<Record<string, Decision>>({});
+  const isExact = group.strategy === 'exactHash';
+
+  // For near-duplicates, pre-select the best file as keep and the rest as delete.
+  const initialBestId = group.members.reduce((best, m) =>
+    m.qualityScore > (group.members.find((x) => x.fileId === best)?.qualityScore ?? 0)
+      ? m.fileId : best,
+    group.members[0]?.fileId ?? 0,
+  );
+
+  let decisions = $state<Record<string, Decision>>(
+    isExact
+      ? {}
+      : Object.fromEntries(group.members.map((m) => [String(m.fileId), m.fileId === initialBestId ? 'keep' : 'delete'])),
+  );
 
   const bestMemberId = $derived(group.members.reduce((best, m) =>
     m.qualityScore > (group.members.find((x) => x.fileId === best)?.qualityScore ?? 0)
@@ -33,6 +46,24 @@
     await saveAction(group.id, Object.fromEntries(group.members.map((m) => [String(m.fileId), 'skip' as Decision])));
     onDecided();
   };
+
+  // For exact matches: clicking Keep on one file auto-marks the rest as delete and submits immediately.
+  const onKeepExact = async (fileId: number) => {
+    const autoDecisions = Object.fromEntries(
+      group.members.map((m) => [String(m.fileId), (m.fileId === fileId ? 'keep' : 'delete') as Decision]),
+    );
+    await saveAction(group.id, autoDecisions);
+    onDecided();
+  };
+
+  // Enter key confirms when decisions are present.
+  $effect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && hasDecisions) onSubmit();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
 </script>
 
 <div class="group">
@@ -46,8 +77,9 @@
       <FileCard
         {member}
         decision={decisions[String(member.fileId)] ?? 'none'}
-        isBest={member.fileId === bestMemberId}
-        onKeep={() => setDecision(member.fileId, 'keep')}
+        isBest={!isExact && member.fileId === bestMemberId}
+        showBadge={!isExact}
+        onKeep={isExact ? () => onKeepExact(member.fileId) : () => setDecision(member.fileId, 'keep')}
         onDelete={() => setDecision(member.fileId, 'delete')}
       />
     {/each}
@@ -55,7 +87,9 @@
 
   <div class="group-actions">
     <button class="skip" onclick={onSkip}>Skip</button>
-    <button class="confirm" disabled={!hasDecisions} onclick={onSubmit}>Confirm</button>
+    {#if !isExact}
+      <button class="confirm" disabled={!hasDecisions} onclick={onSubmit}>Confirm (Enter)</button>
+    {/if}
   </div>
 </div>
 

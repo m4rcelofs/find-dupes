@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [svelte()],
   root: resolve(import.meta.dirname),
   build: {
-    outDir: resolve(import.meta.dirname, 'dist'),
+    outDir: resolve(import.meta.dirname, '../../../dist/reporter/ui/dist'),
     emptyOutDir: true,
   },
   server: {

@@ -121,6 +121,7 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
           sr?.metadata ?? {},
           file?.mimeType ?? '',
           file?.size ?? 0,
+          file?.path ?? '',
         );
         store.insertMatchGroupMember(groupId, fileId, qualityScore);
       }
@@ -129,5 +130,5 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
 
   const groups = store.getGroupsWithMembers();
   const fileCount = groups.reduce((sum, g) => sum + g.members.length, 0);
-  onProgress({ type: 'groups', count: groups.length, fileCount });
+  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length });
 };

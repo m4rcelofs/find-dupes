@@ -266,12 +266,22 @@ export const createCacheStore = (dbPath: string) => {
       .map((row) => row.path);
   };
 
+  /** Marks a file as deleted by path. Called after successfully moving it to the system trash. */
+  const markFileDeletedByPath = (path: string): void => {
+    db.prepare('UPDATE files SET deleted = 1 WHERE path = ?').run(path);
+  };
+
+  /** Deletes all saved review decisions, returning every group to the undecided queue. */
+  const clearReportActions = (): void => {
+    db.prepare('DELETE FROM report_actions').run();
+  };
+
   const close = () => db.close();
 
   return {
     upsertFile, getFileByPath, getFileById, invalidateFile, markDeletedExcept,
     upsertStrategyResult, getStrategyResult, getAllStrategyResults,
     clearMatchGroupsForStrategy, insertMatchGroup, insertMatchGroupMember,
-    getGroupsWithMembers, saveReportAction, getPendingDeletes, close,
+    getGroupsWithMembers, saveReportAction, getPendingDeletes, markFileDeletedByPath, clearReportActions, close,
   };
 };
