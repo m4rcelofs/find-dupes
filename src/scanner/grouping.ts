@@ -80,7 +80,10 @@ export const groupPerceptual = (entries: FingerprintEntry[], threshold: number):
 
     if (cluster.length >= 2) {
       assigned.add(entries[i].fileId);
-      const similarityScore = hammingToSimilarity(minDistance === Infinity ? 0 : minDistance);
+      // Derive bit count from fingerprint length (each hex char = 4 bits) so similarity
+      // is correct regardless of fingerprint size (64-bit image, 256-bit video, 7680-bit audio).
+      const bits = entries[i].fingerprint.length * 4;
+      const similarityScore = hammingToSimilarity(minDistance === Infinity ? 0 : minDistance, bits);
       clusters.push({
         representativeFingerprint: entries[i].fingerprint,
         similarityScore,
