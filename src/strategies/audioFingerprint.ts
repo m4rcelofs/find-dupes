@@ -34,7 +34,7 @@ export const createAudioFingerprintStrategy = (
   { runFpcalc = defaultRunFpcalc }: { runFpcalc?: RunFpcalcFn } = {},
 ): Strategy => ({
   name: 'audioFingerprint',
-  supportedMimeTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm', 'video/mpeg'],
+  supportedMimeTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm', 'video/mpeg', 'video/x-realmedia', 'video/x-realmedia-vbr'],
 
   analyze: async (file: Pick<FileInfo, 'path' | 'mimeType'>): Promise<StrategyResult> => ({
     fingerprint: await runFpcalc(file.path),

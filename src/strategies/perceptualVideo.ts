@@ -92,7 +92,7 @@ export const createPerceptualVideoStrategy = (
   { extractFrames = defaultExtractFrames }: { extractFrames?: ExtractFramesFn } = {},
 ): Strategy => ({
   name: 'perceptualVideo',
-  supportedMimeTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm', 'video/mpeg'],
+  supportedMimeTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm', 'video/mpeg', 'video/x-realmedia', 'video/x-realmedia-vbr'],
 
   analyze: async (file: Pick<FileInfo, 'path' | 'mimeType'>): Promise<StrategyResult> => {
     const frames = await extractFrames(file.path, FRAME_COUNT);

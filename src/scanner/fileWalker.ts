@@ -4,6 +4,16 @@ import { lookup as mimeLookup } from 'mime-types';
 
 const SUPPORTED_MIME_PREFIXES = ['image/', 'video/'];
 
+// Some formats use non-standard vendor MIME types. Remap them to video/* so downstream
+// strategies that match on video/* wildcards work without special-casing each one.
+const MIME_REMAPS: Record<string, string> = {
+  'application/vnd.rn-realmedia': 'video/x-realmedia',
+  'application/vnd.rn-realmedia-vbr': 'video/x-realmedia-vbr',
+};
+
+const normalizeMime = (mime: string | false): string | false =>
+  mime !== false ? (MIME_REMAPS[mime] ?? mime) : false;
+
 const isSupportedMime = (mime: string | false): mime is string =>
   mime !== false && SUPPORTED_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix));
 
@@ -21,7 +31,9 @@ export type WalkedFile = {
  * - Dot files and dot directories are skipped (`.DS_Store`, `.Trash`, `.find-dupes.db`, etc.).
  * - Symlinks are skipped — detected via `lstat` to avoid infinite loops and files outside the root.
  * - Only `image/*` and `video/*` MIME types are yielded, inferred from extension via `mime-types`.
- *   Covers JPEG, PNG, WebP, HEIC, GIF, TIFF, MP4, MOV, AVI, MKV, WebM, MPEG, and more.
+ *   Covers JPEG, PNG, WebP, HEIC, GIF, TIFF, MP4, MOV, AVI, MKV, WebM, MPEG, RM, RMVB, and more.
+ *   Formats with non-standard vendor MIME types (e.g. RM/RMVB) are remapped to `video/*` via
+ *   `MIME_REMAPS` so downstream strategies match them correctly.
  * - `size` and `mtime` reuse the `lstat` result from the symlink check — no redundant stat call.
  */
 export const walkDirectory = async (
@@ -46,7 +58,7 @@ export const walkDirectory = async (
 
     if (!entry.isFile()) continue;
 
-    const mimeType = mimeLookup(entry.name);
+    const mimeType = normalizeMime(mimeLookup(entry.name));
     if (!isSupportedMime(mimeType)) continue;
 
     onFile({
