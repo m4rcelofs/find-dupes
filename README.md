@@ -10,8 +10,9 @@ Find duplicate and similar images and videos across a directory tree, then revie
 ## Requirements
 
 - Node.js 20+
-- `ffmpeg` / `ffprobe` on `$PATH` (for video strategies)
-- `fpcalc` on `$PATH` (for the `audio` strategy — part of [Chromaprint](https://acoustid.org/chromaprint))
+- `fpcalc` on `$PATH` — only for the `audio` strategy (part of [Chromaprint](https://acoustid.org/chromaprint)). Optional: if not installed, the strategy is silently skipped.
+
+`ffmpeg` and `ffprobe` are bundled via npm (`ffmpeg-static`, `@ffprobe-installer/ffprobe`) — no separate installation needed.
 
 ## Installation
 

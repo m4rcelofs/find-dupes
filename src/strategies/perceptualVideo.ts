@@ -1,9 +1,12 @@
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
 import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Strategy, StrategyResult, FileInfo } from '../types.js';
+
+ffmpeg.setFfmpegPath(ffmpegPath as unknown as string);
 
 /**
  * Number of evenly-spaced frames extracted per video.

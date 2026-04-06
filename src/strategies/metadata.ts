@@ -1,7 +1,10 @@
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
+import { path as ffprobePath } from '@ffprobe-installer/ffprobe';
 import { createHash } from 'node:crypto';
 import type { Strategy, StrategyResult, FileMetadata, FileInfo } from '../types.js';
+
+ffmpeg.setFfprobePath(ffprobePath);
 
 const extractImageMetadata = async (path: string): Promise<FileMetadata> => {
   const meta = await sharp(path).metadata();
