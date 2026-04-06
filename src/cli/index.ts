@@ -8,6 +8,7 @@ import { createPerceptualImageStrategy } from '../strategies/perceptualImage.js'
 import { createPerceptualVideoStrategy } from '../strategies/perceptualVideo.js';
 import { createAudioFingerprintStrategy } from '../strategies/audioFingerprint.js';
 import { runScan } from '../scanner/scanner.js';
+import { walkDirectory } from '../scanner/fileWalker.js';
 import { createReportServer } from '../reporter/reportServer.js';
 import type { Strategy, ScanProgressEvent } from '../types.js';
 
@@ -67,6 +68,38 @@ program
       await runScan({ rootDir: absRoot, store, strategies, threshold: opts.threshold, onProgress });
     } finally {
       store.close();
+    }
+  });
+
+program
+  .command('unsupported <root-dir>')
+  .description('List files that will be skipped by scan (unsupported format), grouped by extension')
+  .action(async (rootDir: string) => {
+    const absRoot = resolve(rootDir);
+    const counts = new Map<string, { mime: string | false; count: number }>();
+
+    await walkDirectory(absRoot, () => {}, ({ path, mimeType }) => {
+      const ext = path.includes('.') ? `.${path.split('.').pop()!.toLowerCase()}` : '(no extension)';
+      const existing = counts.get(ext);
+      if (existing) {
+        existing.count++;
+      } else {
+        counts.set(ext, { mime: mimeType, count: 1 });
+      }
+    });
+
+    if (counts.size === 0) {
+      console.log('No unsupported files found.');
+      return;
+    }
+
+    const total = [...counts.values()].reduce((s, e) => s + e.count, 0);
+    console.log(`Unsupported files: ${total} across ${counts.size} extension(s)\n`);
+
+    const sorted = [...counts.entries()].sort((a, b) => b[1].count - a[1].count);
+    for (const [ext, { mime, count }] of sorted) {
+      const mimeLabel = mime ? mime : 'unknown type';
+      console.log(`  ${ext.padEnd(12)} ${String(count).padStart(6)}  (${mimeLabel})`);
     }
   });
 

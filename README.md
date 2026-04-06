@@ -74,6 +74,26 @@ find-dupes scan ~/Photos --strategies all
 | `metadata` | Files with identical dimensions/duration/bitrate |
 | `audio` | Videos with the same audio track (Chromaprint/fpcalc) |
 
+### `unsupported <root-dir>`
+
+Lists files in a directory that will be skipped by `scan` because their format is not recognised, grouped by extension and sorted by count.
+
+```bash
+find-dupes unsupported /Volumes/Photos
+```
+
+Example output:
+
+```
+Unsupported files: 142 across 3 extension(s)
+
+  .flv            89  (video/x-flv)
+  .doc            41  (application/msword)
+  .txt            12  (text/plain)
+```
+
+Useful for auditing a directory before scanning, or for identifying formats worth adding to the MIME remaps.
+
 ### `report`
 
 Starts a local web server to review duplicate groups and commit deletions.
