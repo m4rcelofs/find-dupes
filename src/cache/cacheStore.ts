@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { relative, join } from 'node:path';
 import type { FileInfo, FileMetadata, GroupWithMembers, Decision } from '../types.js';
 
 const MIGRATIONS = `
@@ -50,8 +51,19 @@ const MIGRATIONS = `
 /** Structural type of the cache store — derived automatically from the factory return. */
 export type CacheStore = ReturnType<typeof createCacheStore>;
 
-export const createCacheStore = (dbPath: string) => {
+export const createCacheStore = (dbPath: string, rootDir?: string) => {
   const db = new Database(dbPath);
+
+  /**
+   * Convert an absolute path to a root-relative path for storage.
+   * Stored with forward slashes so the DB is portable across platforms.
+   */
+  const toRel = (abs: string): string =>
+    rootDir ? relative(rootDir, abs).replace(/\\/g, '/') : abs;
+
+  /** Reconstruct an absolute path from a stored relative path. */
+  const toAbs = (rel: string): string =>
+    rootDir ? join(rootDir, rel) : rel;
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(MIGRATIONS);
@@ -72,13 +84,13 @@ export const createCacheStore = (dbPath: string) => {
         scanned_at = excluded.scanned_at,
         deleted = 0
       RETURNING id
-    `).get({ ...file, scannedAt: now() }) as { id: number };
+    `).get({ ...file, path: toRel(file.path), scannedAt: now() }) as { id: number };
     return row.id;
   };
 
   const rowToFileInfo = (row: Record<string, unknown>): FileInfo => ({
     id: row.id as number,
-    path: row.path as string,
+    path: toAbs(row.path as string),
     size: row.size as number,
     mtime: row.mtime as number,
     mimeType: row.mime_type as string,
@@ -87,7 +99,7 @@ export const createCacheStore = (dbPath: string) => {
   });
 
   const getFileByPath = (path: string): FileInfo | undefined => {
-    const row = db.prepare('SELECT * FROM files WHERE path = ?').get(path) as Record<string, unknown> | undefined;
+    const row = db.prepare('SELECT * FROM files WHERE path = ?').get(toRel(path)) as Record<string, unknown> | undefined;
     return row ? rowToFileInfo(row) : undefined;
   };
 
@@ -110,11 +122,12 @@ export const createCacheStore = (dbPath: string) => {
    * Runs in a transaction to keep the batch update atomic.
    */
   const markDeletedExcept = (livePaths: Set<string>): void => {
+    const liveRelPaths = new Set([...livePaths].map(toRel));
     const allFiles = db.prepare('SELECT id, path FROM files WHERE deleted = 0').all() as { id: number; path: string }[];
     const stmt = db.prepare('UPDATE files SET deleted = 1 WHERE id = ?');
     const markDeleted = db.transaction(() => {
       for (const file of allFiles) {
-        if (!livePaths.has(file.path)) stmt.run(file.id);
+        if (!liveRelPaths.has(file.path)) stmt.run(file.id);
       }
     });
     markDeleted();
@@ -270,12 +283,12 @@ export const createCacheStore = (dbPath: string) => {
         const decisions = JSON.parse(row.decisions_json) as Record<string, Decision>;
         return decisions[String(row.file_id)] === 'delete';
       })
-      .map((row) => row.path);
+      .map((row) => toAbs(row.path));
   };
 
   /** Marks a file as deleted by path. Called after successfully moving it to the system trash. */
   const markFileDeletedByPath = (path: string): void => {
-    db.prepare('UPDATE files SET deleted = 1 WHERE path = ?').run(path);
+    db.prepare('UPDATE files SET deleted = 1 WHERE path = ?').run(toRel(path));
   };
 
   /** Deletes all saved review decisions, returning every group to the undecided queue. */

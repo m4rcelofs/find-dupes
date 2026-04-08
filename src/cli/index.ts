@@ -60,7 +60,7 @@ program
     const absRoot = resolve(rootDir);
     const dbPath = opts.db ?? `${absRoot}/.find-dupes.db`;
 
-    const store = createCacheStore(dbPath);
+    const store = createCacheStore(dbPath, absRoot);
     const strategies = buildStrategies(opts.strategies, program);
 
     const thresholds: Record<string, number> = {
@@ -147,7 +147,7 @@ program
   .action(async (rootDir: string | undefined, opts: { port: number; db?: string; dryRun: boolean; force: boolean }) => {
     const absRoot = rootDir ? resolve(rootDir) : process.cwd();
     const dbPath = opts.db ?? `${absRoot}/.find-dupes.db`;
-    const store = createCacheStore(resolve(dbPath));
+    const store = createCacheStore(resolve(dbPath), absRoot);
     if (opts.force) store.clearReportActions();
     const server = createReportServer({ store, dryRun: opts.dryRun });
     server.listen(opts.port, () => {
