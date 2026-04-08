@@ -91,10 +91,10 @@
 </div>
 
 <style>
-  .card { border: 2px solid #333; border-radius: 8px; overflow: hidden; transition: border-color 0.15s; }
+  .card { border: 2px solid #333; border-radius: 8px; transition: border-color 0.15s; }
   .card.keep { border-color: #2a2; }
   .card.delete { border-color: #e53; opacity: 0.6; }
-  .preview { background: #111; aspect-ratio: 4/3; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .preview { background: #111; aspect-ratio: 4/3; overflow: hidden; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; }
   .preview img, .preview video { max-width: 100%; max-height: 100%; object-fit: contain; }
   .details { padding: 0.75rem; font-size: 0.8rem; }
   .details-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
