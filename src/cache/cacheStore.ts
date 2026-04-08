@@ -203,10 +203,12 @@ export const createCacheStore = (dbPath: string) => {
       const members = db.prepare(`
         SELECT mgm.id as mgm_id, mgm.group_id, mgm.file_id, mgm.quality_score,
                f.path, f.size, f.mtime, f.mime_type, f.scanned_at, f.deleted,
-               sr.metadata_json, sr.fingerprint
+               sr.metadata_json, sr.fingerprint,
+               pi.fingerprint as perceptual_fingerprint
         FROM match_group_members mgm
         JOIN files f ON f.id = mgm.file_id
         LEFT JOIN strategy_results sr ON sr.file_id = mgm.file_id AND sr.strategy = ?
+        LEFT JOIN strategy_results pi ON pi.file_id = mgm.file_id AND pi.strategy = 'perceptualImage'
         WHERE mgm.group_id = ?
         ORDER BY mgm.quality_score DESC
       `).all(g.strategy, g.id) as Array<Record<string, unknown> & { mgm_id: number }>;
@@ -233,6 +235,7 @@ export const createCacheStore = (dbPath: string) => {
           },
           metadata: m.metadata_json ? JSON.parse(m.metadata_json as string) as FileMetadata : undefined,
           fingerprint: m.fingerprint as string | undefined,
+          perceptualFingerprint: m.perceptual_fingerprint as string | undefined,
         })),
       };
     });

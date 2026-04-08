@@ -61,6 +61,7 @@ export type MemberWithFile = MatchGroupMember & {
   file: FileInfo;
   metadata?: FileMetadata;
   fingerprint?: string;
+  perceptualFingerprint?: string;
 };
 
 export type GroupWithMembers = MatchGroup & {

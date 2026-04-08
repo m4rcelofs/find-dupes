@@ -29,14 +29,9 @@
   const pathParts = $derived(member.file.path.split('/').filter(Boolean));
   const shortPath = $derived(pathParts.slice(-3).join('/'));
 
-  // Truncate long fingerprints (e.g. audio = 1920 chars) for display
-  const displayFingerprint = $derived(
-    member.fingerprint
-      ? member.fingerprint.length > 64
-        ? member.fingerprint.slice(0, 64) + '…'
-        : member.fingerprint
-      : null
-  );
+  const truncate = (s: string, n = 64) => s.length > n ? s.slice(0, n) + '…' : s;
+  const displayFingerprint = $derived(member.fingerprint ? truncate(member.fingerprint) : null);
+  const displayPerceptual = $derived(member.perceptualFingerprint ?? null);
 </script>
 
 <div class="card" class:keep={decision === 'keep'} class:delete={decision === 'delete'}>
@@ -65,6 +60,9 @@
           <div class="info-row"><span>Quality score</span><span>{member.qualityScore.toFixed(0)}</span></div>
           {#if displayFingerprint}
             <div class="info-row"><span>Hash</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
+          {/if}
+          {#if displayPerceptual}
+            <div class="info-row"><span>dHash</span><span class="mono">{displayPerceptual}</span></div>
           {/if}
         </div>
       </span>
