@@ -46,7 +46,12 @@ type ScanOptions = {
 export const runScan = async ({ rootDir, store, strategies, thresholds, force = false, onProgress }: ScanOptions): Promise<void> => {
   // Step 1: Walk directory and collect all live files
   const liveFiles: Array<{ path: string; size: number; mtime: number; mimeType: string }> = [];
-  await walkDirectory(rootDir, (f) => liveFiles.push(f));
+  let ignoredDirs = 0;
+  let ignoredFiles = 0;
+  await walkDirectory(rootDir, (f) => liveFiles.push(f), undefined, (_, fileCount) => {
+    ignoredDirs++;
+    ignoredFiles += fileCount;
+  });
 
   // Step 2: Mark deleted files (files in DB that are no longer on disk)
   store.markDeletedExcept(new Set(liveFiles.map((f) => f.path)));
@@ -134,5 +139,5 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
 
   const groups = store.getGroupsWithMembers();
   const fileCount = groups.reduce((sum, g) => sum + g.members.length, 0);
-  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length });
+  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length, ignoredDirs, ignoredFiles });
 };

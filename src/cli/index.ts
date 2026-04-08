@@ -86,6 +86,9 @@ program
         if (isTTY) process.stdout.write('\x1b[2K\r');
         const dupeWord = event.fileCount === 1 ? 'file' : 'files';
         console.log(`Scanned ${event.totalFiles} file(s). Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
+        if (event.ignoredDirs > 0) {
+          console.log(`Ignored ${event.ignoredDirs} dir(s) containing ${event.ignoredFiles} file(s) (.scanignore).`);
+        }
         const reportCmd = opts.db ? `find-dupes report --db ${dbPath}` : `find-dupes report ${absRoot}`;
         console.log(`To review: ${reportCmd}`);
       }

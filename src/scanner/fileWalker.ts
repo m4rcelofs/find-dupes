@@ -1,4 +1,4 @@
-import { readdir, lstat } from 'node:fs/promises';
+import { readdir, lstat, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lookup as mimeLookup } from 'mime-types';
 
@@ -58,10 +58,18 @@ export type SkippedFile = {
   mimeType: string | false;
 };
 
+/** Counts supported files inside a directory recursively, used to report ignored dir stats. */
+const countSupportedFiles = async (dir: string): Promise<number> => {
+  let count = 0;
+  await walkDirectory(dir, () => { count++; });
+  return count;
+};
+
 /**
  * Recursively walks `dir` and calls `onFile` for each supported image or video file.
  *
  * Rules:
+ * - Directories containing a `.scanignore` file are skipped entirely.
  * - Dot files and dot directories are skipped (`.DS_Store`, `.Trash`, `.find-dupes.db`, etc.).
  * - Symlinks are skipped — detected via `lstat` to avoid infinite loops and files outside the root.
  * - Only `image/*` and `video/*` MIME types are yielded, inferred from extension via `mime-types`.
@@ -71,12 +79,13 @@ export type SkippedFile = {
  * - `size` and `mtime` reuse the `lstat` result from the symlink check — no redundant stat call.
  *
  * @param onSkipped Optional callback for files that are skipped due to unsupported MIME type.
- *   Receives the raw (pre-remap) MIME type so callers can report what was found.
+ * @param onIgnored Optional callback for directories skipped due to `.scanignore`, with file count.
  */
 export const walkDirectory = async (
   dir: string,
   onFile: (file: WalkedFile) => void,
   onSkipped?: (file: SkippedFile) => void,
+  onIgnored?: (dirPath: string, fileCount: number) => void,
 ): Promise<void> => {
   const entries = await readdir(dir, { withFileTypes: true });
 
@@ -90,7 +99,13 @@ export const walkDirectory = async (
     if (lstats.isSymbolicLink()) continue;
 
     if (entry.isDirectory()) {
-      await walkDirectory(fullPath, onFile, onSkipped);
+      const ignored = await access(join(fullPath, '.scanignore')).then(() => true).catch(() => false);
+      if (ignored) {
+        const fileCount = await countSupportedFiles(fullPath);
+        onIgnored?.(fullPath, fileCount);
+        continue;
+      }
+      await walkDirectory(fullPath, onFile, onSkipped, onIgnored);
       continue;
     }
 
