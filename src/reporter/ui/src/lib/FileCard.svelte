@@ -43,9 +43,7 @@
 
   <div class="details">
     {#if showBadge}<span class="badge" class:best={isBest}>{badge}</span>{/if}
-    <a href={`file://${member.file.path}`} target="_blank" title={member.file.path} class="path">
-      {shortPath}
-    </a>
+    <a href={src} target="_blank" title={member.file.path} class="path">{shortPath}</a>
     <ul>
       {#if member.metadata?.width && member.metadata?.height}
         <li>{member.metadata.width}×{member.metadata.height}</li>

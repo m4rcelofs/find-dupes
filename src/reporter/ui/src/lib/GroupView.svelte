@@ -47,6 +47,11 @@
     onDecided();
   };
 
+  const onKeepAll = async () => {
+    await saveAction(group.id, Object.fromEntries(group.members.map((m) => [String(m.fileId), 'keep' as Decision])));
+    onDecided();
+  };
+
   // For exact matches: clicking Keep on one file auto-marks the rest as delete and submits immediately.
   const onKeepExact = async (fileId: number) => {
     const autoDecisions = Object.fromEntries(
@@ -56,10 +61,13 @@
     onDecided();
   };
 
-  // Enter key confirms when decisions are present.
+  // Keyboard shortcuts: Enter = confirm, k = keep all.
   $effect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLButtonElement) return;
       if (e.key === 'Enter' && hasDecisions) onSubmit();
+      if (e.key === 'k') onKeepAll();
+      if (e.key === 's') onSkip();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -72,7 +80,7 @@
     <span class="score">{group.similarityScore.toFixed(0)}% similar</span>
   </div>
 
-  <div class="cards" style="grid-template-columns: repeat({group.members.length}, 1fr)">
+  <div class="cards">
     {#each group.members as member (member.fileId)}
       <FileCard
         {member}
@@ -86,7 +94,8 @@
   </div>
 
   <div class="group-actions">
-    <button class="skip" onclick={onSkip}>Skip</button>
+    <button class="skip" onclick={onSkip}>Skip (s)</button>
+    <button class="keep-all" onclick={onKeepAll}>Keep All (k)</button>
     {#if !isExact}
       <button class="confirm" disabled={!hasDecisions} onclick={onSubmit}>Confirm (Enter)</button>
     {/if}
@@ -97,9 +106,10 @@
   .group { margin-bottom: 2rem; }
   .group-meta { display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.85rem; opacity: 0.7; }
   .strategy { font-family: monospace; }
-  .cards { display: grid; gap: 1rem; }
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
   .group-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
   .skip { padding: 0.5rem 1.25rem; background: transparent; border: 1px solid #555; color: #aaa; border-radius: 4px; cursor: pointer; }
+  .keep-all { padding: 0.5rem 1.25rem; background: transparent; border: 1px solid #2a6; color: #2a6; border-radius: 4px; cursor: pointer; }
   .confirm { padding: 0.5rem 1.25rem; background: #2469e1; color: white; border: none; border-radius: 4px; cursor: pointer; }
   .confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

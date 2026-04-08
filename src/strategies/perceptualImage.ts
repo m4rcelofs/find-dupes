@@ -39,7 +39,8 @@ export const hammingToSimilarity = (distance: number, bits = 64): number =>
  * Not robust to: large crops, rotations, flips.
  */
 const computeDHash = async (imagePath: string): Promise<string> => {
-  const { data } = await sharp(imagePath)
+  const { data } = await sharp(imagePath, { pages: 1 })
+    .flatten({ background: '#ffffff' })
     .resize(9, 8, { fit: 'fill' })
     .grayscale()
     .raw()
