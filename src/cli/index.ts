@@ -71,8 +71,10 @@ program
 
     const isTTY = process.stdout.isTTY ?? false;
 
+    const cols = (isTTY && process.stdout.columns) ? process.stdout.columns - 1 : Infinity;
     const writeLine = (line: string) => {
-      process.stdout.write(isTTY ? `\x1b[2K\r${line}` : `${line}\n`);
+      const out = line.length > cols ? line.slice(0, cols) : line;
+      process.stdout.write(isTTY ? `\x1b[2K\r${out}` : `${line}\n`);
     };
 
     const onProgress = (event: ScanProgressEvent) => {
