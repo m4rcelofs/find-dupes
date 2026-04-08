@@ -39,7 +39,7 @@ type ScanOptions = {
  * 2. Soft-delete DB records for files no longer on disk.
  * 3. Fingerprint each file — cache hits only run strategies with no existing result
  *    (handles newly added strategies); cache misses invalidate stale results and run all strategies.
- *    Strategy failures are swallowed silently (e.g. fpcalc not installed, corrupt file).
+ *    Strategy failures (e.g. fpcalc not installed, corrupt file) are counted and reported in the groups event.
  * 4. For each grouping strategy: clear previous groups, cluster current fingerprints,
  *    insert groups and members with quality scores.
  */
@@ -59,6 +59,7 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
   // Step 3: Cache check and fingerprint each file
   let current = 0;
   let skipped = 0;
+  let errors = 0;
   for (const walkedFile of liveFiles) {
     current++;
     onProgress({ type: 'file', path: walkedFile.path, current, total: liveFiles.length });
@@ -80,7 +81,7 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
             const result = await strategy.analyze(walkedFile);
             store.upsertStrategyResult(fileId, strategy.name, result.fingerprint, result.metadata ?? {});
           } catch {
-            // Strategy failure (e.g. fpcalc not installed) — skip silently
+            errors++;
           }
         }
       }
@@ -95,7 +96,7 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
           const result = await strategy.analyze(walkedFile);
           store.upsertStrategyResult(fileId, strategy.name, result.fingerprint, result.metadata ?? {});
         } catch {
-          // Strategy failure — skip silently
+          errors++;
         }
       }
     }
@@ -144,5 +145,5 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
 
   const groups = store.getGroupsWithMembers();
   const fileCount = groups.reduce((sum, g) => sum + g.members.length, 0);
-  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length, skipped, ignoredDirs, ignoredFiles });
+  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length, skipped, errors, ignoredDirs, ignoredFiles });
 };

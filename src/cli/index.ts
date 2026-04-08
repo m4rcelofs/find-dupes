@@ -88,6 +88,9 @@ program
         const scanned = event.totalFiles - event.skipped;
         const cacheNote = event.skipped > 0 ? ` (${event.skipped} from cache)` : '';
         console.log(`Scanned ${scanned} file(s)${cacheNote}. Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
+        if (event.errors > 0) {
+          console.log(`Fingerprint errors: ${event.errors} (corrupt files or missing tools).`);
+        }
         if (event.ignoredDirs > 0) {
           console.log(`Ignored ${event.ignoredDirs} dir(s) containing ${event.ignoredFiles} file(s) (.scanignore).`);
         }
