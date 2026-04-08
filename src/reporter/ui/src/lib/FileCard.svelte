@@ -58,7 +58,7 @@
           {/if}
           <div class="info-row"><span>Size</span><span>{formatSize(member.file.size)}</span></div>
           <div class="info-row"><span>Quality score</span><span>{member.qualityScore.toFixed(0)}</span></div>
-          {#if displayFingerprint}
+          {#if displayFingerprint && member.fingerprint !== member.perceptualFingerprint}
             <div class="info-row"><span>Hash</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
           {/if}
           {#if displayPerceptual}
