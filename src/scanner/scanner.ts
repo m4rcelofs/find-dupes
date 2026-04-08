@@ -92,6 +92,7 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
   }
 
   // Step 4 & 5: Group and quality-score per grouping strategy
+  onProgress({ type: 'grouping' });
   const groupingStrategies = strategies.filter((s) => GROUPING_STRATEGY_NAMES.has(s.name));
 
   for (const strategy of groupingStrategies) {
