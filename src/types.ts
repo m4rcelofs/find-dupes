@@ -82,4 +82,5 @@ export type ReportAction = {
 export type ScanProgressEvent =
   | { type: 'file'; path: string; current: number; total?: number }
   | { type: 'grouping' }
+  | { type: 'error'; path: string; strategy: string; message: string }
   | { type: 'groups'; count: number; fileCount: number; totalFiles: number; skipped: number; errors: number; ignoredDirs: number; ignoredFiles: number };

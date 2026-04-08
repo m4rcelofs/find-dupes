@@ -56,7 +56,8 @@ program
   }, 500)
   .option('--db <path>', 'SQLite database path (default: <root-dir>/.find-dupes.db)')
   .option('--force', 'Ignore cached fingerprints and re-run all strategies on every file', false)
-  .action(async (rootDir: string, opts: { strategies: string; imageThreshold: number; videoThreshold: number; audioThreshold: number; db?: string; force: boolean }) => {
+  .option('--verbose', 'Print details for each fingerprint error', false)
+  .action(async (rootDir: string, opts: { strategies: string; imageThreshold: number; videoThreshold: number; audioThreshold: number; db?: string; force: boolean; verbose: boolean }) => {
     const absRoot = resolve(rootDir);
     const dbPath = opts.db ?? `${absRoot}/.find-dupes.db`;
 
@@ -82,6 +83,10 @@ program
         writeLine(`[${event.current}/${event.total}] ${event.path}`);
       } else if (event.type === 'grouping') {
         writeLine('Grouping…');
+      } else if (event.type === 'error') {
+        if (opts.verbose) {
+          process.stderr.write(`\nError [${event.strategy}] ${event.path}: ${event.message}\n`);
+        }
       } else {
         if (isTTY) process.stdout.write('\x1b[2K\r');
         const dupeWord = event.fileCount === 1 ? 'file' : 'files';

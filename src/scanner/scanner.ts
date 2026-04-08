@@ -80,8 +80,9 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
           try {
             const result = await strategy.analyze(walkedFile);
             store.upsertStrategyResult(fileId, strategy.name, result.fingerprint, result.metadata ?? {});
-          } catch {
+          } catch (err) {
             errors++;
+            onProgress({ type: 'error', path: walkedFile.path, strategy: strategy.name, message: err instanceof Error ? err.message : String(err) });
           }
         }
       }
@@ -95,8 +96,9 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
         try {
           const result = await strategy.analyze(walkedFile);
           store.upsertStrategyResult(fileId, strategy.name, result.fingerprint, result.metadata ?? {});
-        } catch {
+        } catch (err) {
           errors++;
+          onProgress({ type: 'error', path: walkedFile.path, strategy: strategy.name, message: err instanceof Error ? err.message : String(err) });
         }
       }
     }
