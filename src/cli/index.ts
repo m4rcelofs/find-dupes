@@ -72,13 +72,7 @@ program
     const isTTY = process.stdout.isTTY ?? false;
 
     const writeLine = (line: string) => {
-      if (isTTY) {
-        process.stdout.cursorTo(0);
-        process.stdout.clearLine(1);
-        process.stdout.write(line);
-      } else {
-        process.stdout.write(line + '\n');
-      }
+      process.stdout.write(isTTY ? `\x1b[2K\r${line}` : `${line}\n`);
     };
 
     const onProgress = (event: ScanProgressEvent) => {
