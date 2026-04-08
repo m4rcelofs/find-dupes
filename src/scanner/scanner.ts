@@ -56,7 +56,6 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
   for (const walkedFile of liveFiles) {
     current++;
     onProgress({ type: 'file', path: walkedFile.path, current, total: liveFiles.length });
-    await new Promise((r) => setImmediate(r));
 
     const existing = store.getFileByPath(walkedFile.path);
     let fileId: number;
