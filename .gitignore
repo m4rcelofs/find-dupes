@@ -3,5 +3,7 @@ dist/
 coverage/
 src/reporter/ui/dist/
 *.db
+*.db-shm
+*.db-wal
 .idea/
 .claude/
