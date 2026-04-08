@@ -70,7 +70,6 @@ program
     };
 
     const isTTY = process.stdout.isTTY ?? false;
-    let lastRender = 0;
 
     const writeLine = (line: string) => {
       if (isTTY) {
@@ -84,9 +83,6 @@ program
 
     const onProgress = (event: ScanProgressEvent) => {
       if (event.type === 'file') {
-        const now = Date.now();
-        if (now - lastRender < 100 && event.current !== event.total) return;
-        lastRender = now;
         writeLine(`[${event.current}/${event.total}] ${event.path}`);
       } else {
         writeLine(`[${event.totalFiles}/${event.totalFiles}] Grouping…`);
