@@ -104,6 +104,80 @@ describe('match groups', () => {
   });
 });
 
+describe('relative path storage (rootDir)', () => {
+  const root = '/mnt/photos';
+
+  it('stores a relative path and returns the absolute path from getFileByPath', () => {
+    const s = createCacheStore(':memory:', root);
+    const abs = `${root}/a/b.jpg`;
+    s.upsertFile({ path: abs, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const file = s.getFileByPath(abs);
+    expect(file).toBeDefined();
+    expect(file!.path).toBe(abs);
+  });
+
+  it('getAllFiles returns absolute paths', () => {
+    const s = createCacheStore(':memory:', root);
+    s.upsertFile({ path: `${root}/img.jpg`, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const files = s.getAllFiles();
+    expect(files[0].path).toBe(`${root}/img.jpg`);
+  });
+
+  it('markDeletedExcept accepts absolute paths and resolves correctly', () => {
+    const s = createCacheStore(':memory:', root);
+    s.upsertFile({ path: `${root}/a.jpg`, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    s.upsertFile({ path: `${root}/b.jpg`, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    s.markDeletedExcept(new Set([`${root}/a.jpg`]));
+    expect(s.getFileByPath(`${root}/a.jpg`)!.deleted).toBe(false);
+    expect(s.getFileByPath(`${root}/b.jpg`)!.deleted).toBe(true);
+  });
+
+  it('getPendingDeletes returns absolute paths', () => {
+    const s = createCacheStore(':memory:', root);
+    const abs = `${root}/img.jpg`;
+    const id = s.upsertFile({ path: abs, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const gid = s.insertMatchGroup('exactHash', 'abc', 100);
+    s.insertMatchGroupMember(gid, id, 500);
+    s.saveReportAction(gid, { [String(id)]: 'delete' });
+    expect(s.getPendingDeletes()).toContain(abs);
+  });
+
+  it('markFileDeletedByPath accepts an absolute path', () => {
+    const s = createCacheStore(':memory:', root);
+    const abs = `${root}/img.jpg`;
+    s.upsertFile({ path: abs, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    s.markFileDeletedByPath(abs);
+    expect(s.getFileByPath(abs)!.deleted).toBe(true);
+  });
+
+  it('getFileById returns absolute path', () => {
+    const s = createCacheStore(':memory:', root);
+    const abs = `${root}/img.jpg`;
+    const id = s.upsertFile({ path: abs, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    expect(s.getFileById(id)!.path).toBe(abs);
+  });
+
+  it('getGroupsWithMembers returns absolute paths in member files', () => {
+    const s = createCacheStore(':memory:', root);
+    const abs = `${root}/img.jpg`;
+    const id = s.upsertFile({ path: abs, size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const gid = s.insertMatchGroup('exactHash', 'abc', 100);
+    s.insertMatchGroupMember(gid, id, 500);
+    const groups = s.getGroupsWithMembers();
+    expect(groups[0].members[0].file.path).toBe(abs);
+  });
+
+  it('re-upsert and lookup both work under the same rootDir', () => {
+    const s = createCacheStore(':memory:', root);
+    const abs = `${root}/sub/img.jpg`;
+    s.upsertFile({ path: abs, size: 100, mtime: 1, mimeType: 'image/jpeg' });
+    s.upsertFile({ path: abs, size: 200, mtime: 2, mimeType: 'image/jpeg' });
+    const file = s.getFileByPath(abs);
+    expect(file!.size).toBe(200);
+    expect(file!.path).toBe(abs);
+  });
+});
+
 describe('report actions', () => {
   it('saves decisions and returns pending deletes', () => {
     const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });

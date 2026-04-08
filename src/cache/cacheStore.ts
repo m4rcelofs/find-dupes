@@ -239,7 +239,7 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
           qualityScore: m.quality_score as number,
           file: {
             id: m.file_id as number,
-            path: m.path as string,
+            path: toAbs(m.path as string),
             size: m.size as number,
             mtime: m.mtime as number,
             mimeType: m.mime_type as string,
