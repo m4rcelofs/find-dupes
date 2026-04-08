@@ -60,6 +60,7 @@ export type MatchGroupMember = {
 export type MemberWithFile = MatchGroupMember & {
   file: FileInfo;
   metadata?: FileMetadata;
+  fingerprint?: string;
 };
 
 export type GroupWithMembers = MatchGroup & {

@@ -28,6 +28,15 @@
   const badge = $derived(isBest ? 'Best' : member.metadata?.width ? 'Lower res' : 'Smaller');
   const pathParts = $derived(member.file.path.split('/').filter(Boolean));
   const shortPath = $derived(pathParts.slice(-3).join('/'));
+
+  // Truncate long fingerprints (e.g. audio = 1920 chars) for display
+  const displayFingerprint = $derived(
+    member.fingerprint
+      ? member.fingerprint.length > 64
+        ? member.fingerprint.slice(0, 64) + '…'
+        : member.fingerprint
+      : null
+  );
 </script>
 
 <div class="card" class:keep={decision === 'keep'} class:delete={decision === 'delete'}>
@@ -42,7 +51,24 @@
   </div>
 
   <div class="details">
-    {#if showBadge}<span class="badge" class:best={isBest}>{badge}</span>{/if}
+    <div class="details-header">
+      {#if showBadge}<span class="badge" class:best={isBest}>{badge}</span>{/if}
+      <span class="info-wrap">
+        <span class="info-icon">ℹ</span>
+        <div class="info-popup">
+          <div class="info-row"><span>Path</span><span>{member.file.path}</span></div>
+          <div class="info-row"><span>Type</span><span>{member.file.mimeType}</span></div>
+          {#if member.metadata?.width && member.metadata?.height}
+            <div class="info-row"><span>Dimensions</span><span>{member.metadata.width}×{member.metadata.height}</span></div>
+          {/if}
+          <div class="info-row"><span>Size</span><span>{formatSize(member.file.size)}</span></div>
+          <div class="info-row"><span>Quality score</span><span>{member.qualityScore.toFixed(0)}</span></div>
+          {#if displayFingerprint}
+            <div class="info-row"><span>Hash</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
+          {/if}
+        </div>
+      </span>
+    </div>
     <a href={src} target="_blank" title={member.file.path} class="path">{shortPath}</a>
     <ul>
       {#if member.metadata?.width && member.metadata?.height}
@@ -71,8 +97,32 @@
   .preview { background: #111; aspect-ratio: 4/3; overflow: hidden; display: flex; align-items: center; justify-content: center; }
   .preview img, .preview video { max-width: 100%; max-height: 100%; object-fit: contain; }
   .details { padding: 0.75rem; font-size: 0.8rem; }
+  .details-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
   .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #333; }
   .badge.best { background: #2a6; }
+  .info-wrap { position: relative; margin-left: auto; }
+  .info-icon { font-size: 0.7rem; color: #666; cursor: default; user-select: none; }
+  .info-popup {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 1.4rem;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    min-width: 260px;
+    max-width: 360px;
+    z-index: 10;
+    font-size: 0.72rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .info-wrap:hover .info-popup { display: block; }
+  .info-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.2rem 0; border-bottom: 1px solid #2a2a2a; }
+  .info-row:last-child { border-bottom: none; }
+  .info-row span:first-child { color: #888; white-space: nowrap; }
+  .info-row span:last-child { text-align: right; word-break: break-all; }
+  .mono { font-family: monospace; }
   .path { display: block; margin: 0.4rem 0; color: #88aaff; text-decoration: none; word-break: break-all; }
   ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; opacity: 0.7; }
   .actions { display: flex; gap: 0.5rem; padding: 0.5rem 0.75rem; border-top: 1px solid #222; }
