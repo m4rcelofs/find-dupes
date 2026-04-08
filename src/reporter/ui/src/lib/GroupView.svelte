@@ -106,7 +106,7 @@
   .group { margin-bottom: 2rem; }
   .group-meta { display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.85rem; opacity: 0.7; }
   .strategy { font-family: monospace; }
-  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .group-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
   .skip { padding: 0.5rem 1.25rem; background: transparent; border: 1px solid #555; color: #aaa; border-radius: 4px; cursor: pointer; }
   .keep-all { padding: 0.5rem 1.25rem; background: transparent; border: 1px solid #2a6; color: #2a6; border-radius: 4px; cursor: pointer; }
