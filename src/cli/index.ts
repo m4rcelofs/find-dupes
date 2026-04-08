@@ -69,14 +69,28 @@ program
       audioFingerprint: opts.audioThreshold,
     };
 
-    let lastLine = '';
+    const isTTY = process.stdout.isTTY ?? false;
+    let lastRender = 0;
+
+    const writeLine = (line: string) => {
+      if (isTTY) {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine(1);
+        process.stdout.write(line);
+      } else {
+        process.stdout.write(line + '\n');
+      }
+    };
+
     const onProgress = (event: ScanProgressEvent) => {
       if (event.type === 'file') {
-        const line = `[${event.current}/${event.total}] ${event.path}`;
-        process.stdout.write('\r' + line.padEnd(lastLine.length));
-        lastLine = line;
+        const now = Date.now();
+        if (now - lastRender < 100 && event.current !== event.total) return;
+        lastRender = now;
+        writeLine(`[${event.current}/${event.total}] ${event.path}`);
       } else {
-        process.stdout.write('\n');
+        writeLine(`[${event.totalFiles}/${event.totalFiles}] Grouping…`);
+        if (isTTY) process.stdout.write('\n');
         const dupeWord = event.fileCount === 1 ? 'file' : 'files';
         console.log(`\nScanned ${event.totalFiles} file(s). Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
         const reportCmd = opts.db
