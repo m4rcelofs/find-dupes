@@ -83,14 +83,11 @@ program
       } else if (event.type === 'grouping') {
         writeLine('Grouping…');
       } else {
-        writeLine(''); // clear the Grouping… line
-        if (isTTY) process.stdout.write('\n');
+        if (isTTY) process.stdout.write('\x1b[2K\r');
         const dupeWord = event.fileCount === 1 ? 'file' : 'files';
-        console.log(`\nScanned ${event.totalFiles} file(s). Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
-        const reportCmd = opts.db
-          ? `find-dupes report --db ${dbPath}`
-          : `find-dupes report ${absRoot}`;
-        console.log(`\nTo review: ${reportCmd}`);
+        console.log(`Scanned ${event.totalFiles} file(s). Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
+        const reportCmd = opts.db ? `find-dupes report --db ${dbPath}` : `find-dupes report ${absRoot}`;
+        console.log(`To review: ${reportCmd}`);
       }
     };
 
