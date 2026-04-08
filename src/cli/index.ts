@@ -83,6 +83,7 @@ program
       } else if (event.type === 'grouping') {
         writeLine('Grouping…');
       } else {
+        writeLine(''); // clear the Grouping… line
         if (isTTY) process.stdout.write('\n');
         const dupeWord = event.fileCount === 1 ? 'file' : 'files';
         console.log(`\nScanned ${event.totalFiles} file(s). Found ${event.count} duplicate group(s) containing ${event.fileCount} ${dupeWord}.`);
