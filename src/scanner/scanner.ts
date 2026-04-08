@@ -58,6 +58,7 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
 
   // Step 3: Cache check and fingerprint each file
   let current = 0;
+  let skipped = 0;
   for (const walkedFile of liveFiles) {
     current++;
     onProgress({ type: 'file', path: walkedFile.path, current, total: liveFiles.length });
@@ -71,12 +72,16 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
       const missingStrategies = strategies.filter(
         (s) => strategyApplies(s, walkedFile.mimeType) && !store.getStrategyResult(fileId, s.name),
       );
-      for (const strategy of missingStrategies) {
-        try {
-          const result = await strategy.analyze(walkedFile);
-          store.upsertStrategyResult(fileId, strategy.name, result.fingerprint, result.metadata ?? {});
-        } catch {
-          // Strategy failure (e.g. fpcalc not installed) — skip silently
+      if (missingStrategies.length === 0) {
+        skipped++;
+      } else {
+        for (const strategy of missingStrategies) {
+          try {
+            const result = await strategy.analyze(walkedFile);
+            store.upsertStrategyResult(fileId, strategy.name, result.fingerprint, result.metadata ?? {});
+          } catch {
+            // Strategy failure (e.g. fpcalc not installed) — skip silently
+          }
         }
       }
     } else {
@@ -139,5 +144,5 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
 
   const groups = store.getGroupsWithMembers();
   const fileCount = groups.reduce((sum, g) => sum + g.members.length, 0);
-  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length, ignoredDirs, ignoredFiles });
+  onProgress({ type: 'groups', count: groups.length, fileCount, totalFiles: liveFiles.length, skipped, ignoredDirs, ignoredFiles });
 };
