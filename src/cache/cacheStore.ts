@@ -96,6 +96,9 @@ export const createCacheStore = (dbPath: string) => {
     return row ? rowToFileInfo(row) : undefined;
   };
 
+  const getAllFiles = (): FileInfo[] =>
+    (db.prepare('SELECT * FROM files').all() as Record<string, unknown>[]).map(rowToFileInfo);
+
   /** Deletes all strategy_results for a file. Called when size/mtime changed — cached fingerprints are stale. */
   const invalidateFile = (fileId: number): void => {
     db.prepare('DELETE FROM strategy_results WHERE file_id = ?').run(fileId);
@@ -279,7 +282,7 @@ export const createCacheStore = (dbPath: string) => {
   const close = () => db.close();
 
   return {
-    upsertFile, getFileByPath, getFileById, invalidateFile, markDeletedExcept,
+    upsertFile, getFileByPath, getFileById, getAllFiles, invalidateFile, markDeletedExcept,
     upsertStrategyResult, getStrategyResult, getAllStrategyResults,
     clearMatchGroupsForStrategy, insertMatchGroup, insertMatchGroupMember,
     getGroupsWithMembers, saveReportAction, getPendingDeletes, markFileDeletedByPath, clearReportActions, close,

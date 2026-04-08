@@ -18,7 +18,7 @@ export const computeQualityScore = (
   metadata: FileMetadata,
   mimeType: string,
   fileSize: number,
-  filePath: string,
+  filePath = '',
 ): number => {
   const depth = filePath.split('/').filter(Boolean).length;
   const depthMultiplier = 1 + depth * 0.001;

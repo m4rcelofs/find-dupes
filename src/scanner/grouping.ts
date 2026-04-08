@@ -1,4 +1,23 @@
-import { hammingDistance, hammingToSimilarity } from '../strategies/perceptualImage.js';
+import { hammingToSimilarity } from '../strategies/perceptualImage.js';
+
+// Convert a hex fingerprint to a Uint32Array once, so the O(n²) loop uses
+// fast integer arithmetic instead of repeated BigInt string conversions.
+const hexToUint32Array = (hex: string): Uint32Array => {
+  const arr = new Uint32Array(hex.length / 8);
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = parseInt(hex.slice(i * 8, i * 8 + 8), 16);
+  }
+  return arr;
+};
+
+const hammingDistanceFast = (a: Uint32Array, b: Uint32Array): number => {
+  let count = 0;
+  for (let i = 0; i < a.length; i++) {
+    let x = (a[i] ^ b[i]) >>> 0;
+    while (x) { x &= x - 1; count++; }
+  }
+  return count;
+};
 
 type FingerprintEntry = { fileId: number; fingerprint: string };
 
@@ -59,6 +78,9 @@ export const groupPerceptual = (entries: FingerprintEntry[], threshold: number):
     );
   }
 
+  // Pre-convert all fingerprints once — avoids O(n²) BigInt string conversions.
+  const uint32s = entries.map((e) => hexToUint32Array(e.fingerprint));
+
   const assigned = new Set<number>();
   const clusters: MatchCluster[] = [];
 
@@ -70,7 +92,7 @@ export const groupPerceptual = (entries: FingerprintEntry[], threshold: number):
 
     for (let j = i + 1; j < entries.length; j++) {
       if (assigned.has(entries[j].fileId)) continue;
-      const dist = hammingDistance(entries[i].fingerprint, entries[j].fingerprint);
+      const dist = hammingDistanceFast(uint32s[i], uint32s[j]);
       if (dist <= threshold) {
         cluster.push(entries[j].fileId);
         assigned.add(entries[j].fileId);

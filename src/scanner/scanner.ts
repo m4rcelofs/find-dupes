@@ -93,16 +93,19 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
 
   // Step 4 & 5: Group and quality-score per grouping strategy
   onProgress({ type: 'grouping' });
+
+  // Pre-load all files and metadata once to avoid per-file DB queries in the insertion loop.
+  const allFilesMap = new Map(store.getAllFiles().map((f) => [f.id, f]));
+  const allMetadataMap = new Map(store.getAllStrategyResults('metadata').map((r) => [r.fileId, r]));
+  const liveFileIds = new Set([...allFilesMap.values()].filter((f) => !f.deleted).map((f) => f.id));
+
   const groupingStrategies = strategies.filter((s) => GROUPING_STRATEGY_NAMES.has(s.name));
 
   for (const strategy of groupingStrategies) {
     store.clearMatchGroupsForStrategy(strategy.name);
 
     const results = store.getAllStrategyResults(strategy.name);
-    const liveResults = results.filter((r) => {
-      const file = store.getFileById(r.fileId);
-      return file && !file.deleted;
-    });
+    const liveResults = results.filter((r) => liveFileIds.has(r.fileId));
 
     const clusters =
       strategy.name === 'exactHash'
@@ -116,8 +119,8 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
         cluster.similarityScore,
       );
       for (const fileId of cluster.fileIds) {
-        const file = store.getFileById(fileId);
-        const sr = store.getStrategyResult(fileId, 'metadata');
+        const file = allFilesMap.get(fileId);
+        const sr = allMetadataMap.get(fileId);
         const qualityScore = computeQualityScore(
           sr?.metadata ?? {},
           file?.mimeType ?? '',
