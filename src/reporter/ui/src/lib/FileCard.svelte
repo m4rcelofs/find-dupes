@@ -32,6 +32,22 @@
   const truncate = (s: string, n = 64) => s.length > n ? s.slice(0, n) + '…' : s;
   const displayFingerprint = $derived(member.fingerprint ? truncate(member.fingerprint) : null);
   const displayPerceptual = $derived(member.perceptualFingerprint ?? null);
+
+  let infoOpen = $state(false);
+  let infoWrapEl = $state<HTMLElement | null>(null);
+
+  const toggleInfo = (e: MouseEvent) => { e.stopPropagation(); infoOpen = !infoOpen; };
+
+  $effect(() => {
+    if (!infoOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (infoWrapEl && !infoWrapEl.contains(e.target as Node)) infoOpen = false;
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') infoOpen = false; };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onEsc); };
+  });
 </script>
 
 <div class="card" class:keep={decision === 'keep'} class:delete={decision === 'delete'}>
@@ -48,9 +64,9 @@
   <div class="details">
     <div class="details-header">
       {#if showBadge}<span class="badge" class:best={isBest}>{badge}</span>{/if}
-      <span class="info-wrap">
-        <span class="info-icon">ℹ</span>
-        <div class="info-popup">
+      <span class="info-wrap" bind:this={infoWrapEl}>
+        <button class="info-icon" onclick={toggleInfo} aria-label="File info" aria-expanded={infoOpen}>ℹ</button>
+        <div class="info-popup" class:open={infoOpen}>
           <div class="info-row"><span>Path</span><span>{member.file.path}</span></div>
           <div class="info-row"><span>Type</span><span>{member.file.mimeType}</span></div>
           {#if member.metadata?.width && member.metadata?.height}
@@ -99,7 +115,7 @@
   .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #333; }
   .badge.best { background: #2a6; }
   .info-wrap { position: relative; margin-left: auto; }
-  .info-icon { font-size: 0.7rem; color: #666; cursor: default; user-select: none; }
+  .info-icon { font-size: 0.7rem; color: #666; cursor: pointer; user-select: none; background: none; border: none; padding: 0; line-height: 1; }
   .info-popup {
     display: none;
     position: absolute;
@@ -115,7 +131,7 @@
     font-size: 0.72rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
-  .info-wrap:hover .info-popup { display: block; }
+  .info-popup.open { display: block; }
   .info-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.2rem 0; border-bottom: 1px solid #2a2a2a; }
   .info-row:last-child { border-bottom: none; }
   .info-row span:first-child { color: #888; white-space: nowrap; }
