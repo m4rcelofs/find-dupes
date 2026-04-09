@@ -206,10 +206,11 @@ describe('report actions', () => {
     expect(deletes).toContain('/a.jpg');
   });
 
-  it('keep in any group protects a file from deletion even if deleted in another group', () => {
-    // Scenario: A and B are in group1 (A=keep, B=delete).
-    // A, B, C are also in group2 (B=keep, A=delete, C=delete).
-    // Expected: only C is deleted. A is protected by keep in group1. B is protected by keep in group2.
+  it('delete in any group overrides keep in another — last explicit decision wins', () => {
+    // Group1: A=keep, B=delete. Group2 (B hidden by UI): A=delete, C=keep.
+    // A was "Previously kept" but user explicitly deleted it in group2 → A is deleted.
+    // B is only in group1 as delete → B is deleted.
+    // C is only in group2 as keep → C is not deleted.
     const idA = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
     const idB = store.upsertFile({ path: '/b.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
     const idC = store.upsertFile({ path: '/c.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
@@ -219,16 +220,15 @@ describe('report actions', () => {
     store.insertMatchGroupMember(g1, idB, 400);
     store.saveReportAction(g1, { [String(idA)]: 'keep', [String(idB)]: 'delete' });
 
-    const g2 = store.insertMatchGroup('exactHash', 'fp2', 100);
+    const g2 = store.insertMatchGroup('perceptualImage', 'fp2', 90);
     store.insertMatchGroupMember(g2, idA, 500);
-    store.insertMatchGroupMember(g2, idB, 400);
     store.insertMatchGroupMember(g2, idC, 300);
-    store.saveReportAction(g2, { [String(idA)]: 'delete', [String(idB)]: 'keep', [String(idC)]: 'delete' });
+    store.saveReportAction(g2, { [String(idA)]: 'delete', [String(idC)]: 'keep' });
 
     const deletes = store.getPendingDeletes();
-    expect(deletes).not.toContain('/a.jpg');
-    expect(deletes).not.toContain('/b.jpg');
-    expect(deletes).toContain('/c.jpg');
+    expect(deletes).toContain('/a.jpg');
+    expect(deletes).toContain('/b.jpg');
+    expect(deletes).not.toContain('/c.jpg');
   });
 
   it('does not return paths where file is marked deleted', () => {
