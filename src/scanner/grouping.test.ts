@@ -96,17 +96,34 @@ describe('groupPerceptual', () => {
     expect(() => groupPerceptual(entries, 10)).toThrow('fingerprint length mismatch');
   });
 
-  it('greedy clustering: assigns shared neighbor to first pivot only', () => {
-    // A is close to B (dist=1), B is close to C (dist=1), but A is far from C
-    // In greedy mode: A forms cluster with B; C is then isolated
+  it('complete-linkage: does not chain A→B→C when A and C exceed threshold', () => {
+    // A-B = 5 bits (within threshold 5)
+    // B-C = 3 bits (within threshold 5)
+    // A-C = 6 bits (over threshold 5)
+    // Single-linkage would put all three in one group if B is the pivot.
+    // Complete-linkage must reject C when adding it to cluster [A,B] because A-C > threshold.
+    const entries: FingerprintEntry[] = [
+      { fileId: 1, fingerprint: '0000000000000000' }, // A
+      { fileId: 2, fingerprint: '00000000000000f8' }, // B — 5 bits from A (0xF8 = 1111 1000)
+      { fileId: 3, fingerprint: '000000000000007e' }, // C — 3 bits from B (0x86 diff), 6 bits from A
+    ];
+    const groups = groupPerceptual(entries, 5);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].fileIds).toHaveLength(2);
+    // A and C must never be in the same group
+    const groupWithA = groups.find((g) => g.fileIds.includes(1));
+    const groupWithC = groups.find((g) => g.fileIds.includes(3));
+    expect(groupWithA).not.toBe(groupWithC);
+  });
+
+  it('complete-linkage: all three in same group when all pairwise distances are within threshold', () => {
     const entries: FingerprintEntry[] = [
       { fileId: 1, fingerprint: '0000000000000000' }, // A
       { fileId: 2, fingerprint: '0000000000000001' }, // B — 1 bit from A
       { fileId: 3, fingerprint: '0000000000000003' }, // C — 1 bit from B, 2 bits from A
     ];
-    // All three are within threshold of each other (dist A-C = 2)
+    // All pairwise distances ≤ 2, so complete-linkage puts them all together
     const groups = groupPerceptual(entries, 2);
-    // Greedy: A seeds, finds B (dist=1) and C (dist=2) → one cluster [A,B,C]
     expect(groups).toHaveLength(1);
     expect(groups[0].fileIds).toHaveLength(3);
   });

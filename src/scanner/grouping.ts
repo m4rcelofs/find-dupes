@@ -52,13 +52,18 @@ export const groupExact = (entries: FingerprintEntry[]): MatchCluster[] => {
 /**
  * Clusters files whose fingerprints are within `threshold` Hamming distance of each other.
  *
- * Algorithm — greedy O(n²) pivot scan:
+ * Algorithm — greedy O(n²) complete-linkage scan:
  * 1. Iterate entries in order; skip already-assigned ones.
- * 2. Treat the current entry as a pivot; add any unassigned entry within `threshold` to its cluster.
+ * 2. Treat the current entry as a pivot; add any unassigned entry that is within `threshold`
+ *    Hamming distance of ALL current cluster members (not just the pivot).
  * 3. If the cluster has 2+ members, emit it and mark all members assigned.
  *
- * Not a global optimum — a file close to two pivots goes to the first one encountered.
- * Fast and produces useful results in practice, since true near-duplicates cluster tightly.
+ * Complete-linkage prevents chaining: A≈B and B≈C does NOT put A and C in the same group
+ * unless A≈C as well. Single-linkage would allow arbitrarily dissimilar files to end up
+ * together via a chain of pairwise matches.
+ *
+ * Not a global optimum — a file close to two clusters goes to the first one encountered.
+ * The inner check is O(cluster size), which is tiny in practice for near-duplicate sets.
  *
  * Throws if fingerprint lengths are inconsistent — this indicates a strategy bug
  * (mixed hash sizes from different algorithm versions).
@@ -87,16 +92,27 @@ export const groupPerceptual = (entries: FingerprintEntry[], threshold: number):
   for (let i = 0; i < entries.length; i++) {
     if (assigned.has(entries[i].fileId)) continue;
 
+    const clusterIdxs: number[] = [i];
     const cluster: number[] = [entries[i].fileId];
     let minDistance = Infinity;
 
     for (let j = i + 1; j < entries.length; j++) {
       if (assigned.has(entries[j].fileId)) continue;
-      const dist = hammingDistanceFast(uint32s[i], uint32s[j]);
-      if (dist <= threshold) {
+
+      // Complete-linkage: j must be within threshold of every current cluster member.
+      let qualifies = true;
+      let maxDistToCluster = 0;
+      for (const ci of clusterIdxs) {
+        const dist = hammingDistanceFast(uint32s[ci], uint32s[j]);
+        if (dist > threshold) { qualifies = false; break; }
+        if (dist > maxDistToCluster) maxDistToCluster = dist;
+      }
+
+      if (qualifies) {
+        clusterIdxs.push(j);
         cluster.push(entries[j].fileId);
         assigned.add(entries[j].fileId);
-        if (dist < minDistance) minDistance = dist;
+        if (maxDistToCluster < minDistance) minDistance = maxDistToCluster;
       }
     }
 
