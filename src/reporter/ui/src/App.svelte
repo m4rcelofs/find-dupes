@@ -25,8 +25,11 @@
   const currentGroup = $derived(groups[currentIndex]);
   const remaining = $derived(groups.length - currentIndex);
 
-  const onDecided = () => {
-    currentIndex += 1;
+  const onDecided = async () => {
+    groups = await fetchGroups();
+    // The decided group is removed by the server; the next undecided group slides
+    // into currentIndex automatically. If we were at the last group, currentGroup
+    // becomes undefined and the "All groups reviewed" state is shown correctly.
     refreshPendingCount();
   };
 
