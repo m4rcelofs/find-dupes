@@ -13,9 +13,15 @@
     try { pendingCount = await fetchPendingCount(); } catch { /* ignore */ }
   };
 
+  // Groups where every member is already queued for deletion have nothing to decide — skip them.
+  const loadGroups = async () => {
+    const all = await fetchGroups();
+    return all.filter((g) => g.members.some((m) => m.priorDecision !== 'delete'));
+  };
+
   onMount(async () => {
     try {
-      groups = await fetchGroups();
+      groups = await loadGroups();
     } catch (e) {
       status = `Failed to load groups: ${e}`;
     }
@@ -26,7 +32,7 @@
   const remaining = $derived(groups.length - currentIndex);
 
   const onDecided = async () => {
-    groups = await fetchGroups();
+    groups = await loadGroups();
     // The decided group is removed by the server; the next undecided group slides
     // into currentIndex automatically. If we were at the last group, currentGroup
     // becomes undefined and the "All groups reviewed" state is shown correctly.
@@ -40,7 +46,7 @@
         status = `Dry run — would delete: ${result.wouldDelete?.join(', ')}`;
       } else {
         status = `Moved ${result.deleted?.length ?? 0} file(s) to trash.`;
-        groups = await fetchGroups();
+        groups = await loadGroups();
         currentIndex = 0;
       }
       await refreshPendingCount();
