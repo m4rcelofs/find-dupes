@@ -59,9 +59,6 @@
     {:else}
       <img {src} alt={member.file.path} loading="lazy" />
     {/if}
-    {#if member.metadata?.width && member.metadata?.height}
-      <span class="res-tag">{member.metadata.width}×{member.metadata.height}</span>
-    {/if}
   </div>
 
   <div class="details">
@@ -89,6 +86,9 @@
     <a href={src} target="_blank" title={member.file.path} class="path">{shortPath}</a>
     <ul>
       <li>{formatSize(member.file.size)}</li>
+      {#if member.metadata?.width && member.metadata?.height}
+        <li>{member.metadata.width}×{member.metadata.height}</li>
+      {/if}
       {#if member.metadata?.bitrate}
         <li>{Math.round(member.metadata.bitrate / 1000)} kbps</li>
       {/if}
@@ -108,9 +108,8 @@
   .card { border: 2px solid #333; border-radius: 8px; transition: border-color 0.15s; }
   .card.keep { border-color: #2a2; }
   .card.delete { border-color: #e53; opacity: 0.6; }
-  .preview { background: #111; aspect-ratio: 4/3; overflow: hidden; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; position: relative; }
+  .preview { background: #111; aspect-ratio: 4/3; overflow: hidden; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; }
   .preview img, .preview video { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .res-tag { position: absolute; bottom: 0.35rem; left: 0.35rem; background: rgba(0,0,0,0.6); color: #ddd; font-size: 0.65rem; padding: 2px 5px; border-radius: 3px; pointer-events: none; }
   .details { padding: 0.75rem; font-size: 0.8rem; }
   .details-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
   .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #333; }
