@@ -13,10 +13,14 @@
     try { pendingCount = await fetchPendingCount(); } catch { /* ignore */ }
   };
 
-  // Groups where every member is already queued for deletion have nothing to decide — skip them.
+  // Skip groups with nothing left to decide: need ≥2 visible (non-deleted) members
+  // with at least one still undecided.
   const loadGroups = async () => {
     const all = await fetchGroups();
-    return all.filter((g) => g.members.some((m) => m.priorDecision !== 'delete'));
+    return all.filter((g) => {
+      const visible = g.members.filter((m) => m.priorDecision !== 'delete');
+      return visible.length >= 2 && visible.some((m) => !m.priorDecision);
+    });
   };
 
   onMount(async () => {
