@@ -266,24 +266,35 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
   };
 
   /**
-   * Returns paths of all non-deleted files marked `'delete'` across all decided groups.
-   * Used by POST /api/commit to build the list of files to unlink.
+   * Returns paths of files that should be deleted on commit.
+   *
+   * A file is only deleted if it has a 'delete' decision in at least one group
+   * AND no 'keep' decision in any group. This prevents the case where a file
+   * appears in multiple groups and is marked 'keep' in one but 'delete' in another.
    */
   const getPendingDeletes = (): string[] => {
     const rows = db.prepare(`
-      SELECT DISTINCT f.path, f.id as file_id, ra.decisions_json
+      SELECT f.path, f.id as file_id, ra.decisions_json
       FROM report_actions ra
       JOIN match_group_members mgm ON mgm.group_id = ra.group_id
       JOIN files f ON f.id = mgm.file_id
       WHERE f.deleted = 0
     `).all() as Array<{ path: string; file_id: number; decisions_json: string }>;
 
-    return rows
-      .filter((row) => {
-        const decisions = JSON.parse(row.decisions_json) as Record<string, Decision>;
-        return decisions[String(row.file_id)] === 'delete';
-      })
-      .map((row) => toAbs(row.path));
+    // Accumulate all decisions for each file across all groups.
+    const byFile = new Map<number, { path: string; hasDelete: boolean; hasKeep: boolean }>();
+    for (const row of rows) {
+      const decision = (JSON.parse(row.decisions_json) as Record<string, Decision>)[String(row.file_id)];
+      const entry = byFile.get(row.file_id) ?? { path: row.path, hasDelete: false, hasKeep: false };
+      entry.hasDelete = entry.hasDelete || decision === 'delete';
+      entry.hasKeep   = entry.hasKeep   || decision === 'keep';
+      byFile.set(row.file_id, entry);
+    }
+
+    // Only trash files with a delete decision that was never overridden by a keep.
+    return [...byFile.values()]
+      .filter(({ hasDelete, hasKeep }) => hasDelete && !hasKeep)
+      .map(({ path }) => toAbs(path));
   };
 
   /** Marks a file as deleted by path. Called after successfully moving it to the system trash. */

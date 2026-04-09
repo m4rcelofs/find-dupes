@@ -206,6 +206,31 @@ describe('report actions', () => {
     expect(deletes).toContain('/a.jpg');
   });
 
+  it('keep in any group protects a file from deletion even if deleted in another group', () => {
+    // Scenario: A and B are in group1 (A=keep, B=delete).
+    // A, B, C are also in group2 (B=keep, A=delete, C=delete).
+    // Expected: only C is deleted. A is protected by keep in group1. B is protected by keep in group2.
+    const idA = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const idB = store.upsertFile({ path: '/b.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+    const idC = store.upsertFile({ path: '/c.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
+
+    const g1 = store.insertMatchGroup('exactHash', 'fp1', 100);
+    store.insertMatchGroupMember(g1, idA, 500);
+    store.insertMatchGroupMember(g1, idB, 400);
+    store.saveReportAction(g1, { [String(idA)]: 'keep', [String(idB)]: 'delete' });
+
+    const g2 = store.insertMatchGroup('exactHash', 'fp2', 100);
+    store.insertMatchGroupMember(g2, idA, 500);
+    store.insertMatchGroupMember(g2, idB, 400);
+    store.insertMatchGroupMember(g2, idC, 300);
+    store.saveReportAction(g2, { [String(idA)]: 'delete', [String(idB)]: 'keep', [String(idC)]: 'delete' });
+
+    const deletes = store.getPendingDeletes();
+    expect(deletes).not.toContain('/a.jpg');
+    expect(deletes).not.toContain('/b.jpg');
+    expect(deletes).toContain('/c.jpg');
+  });
+
   it('does not return paths where file is marked deleted', () => {
     const id = store.upsertFile({ path: '/a.jpg', size: 1, mtime: 1, mimeType: 'image/jpeg' });
     const groupId = store.insertMatchGroup('exactHash', 'abc', 100);
