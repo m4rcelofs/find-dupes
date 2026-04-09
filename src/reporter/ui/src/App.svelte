@@ -37,6 +37,8 @@
         status = `Dry run — would delete: ${result.wouldDelete?.join(', ')}`;
       } else {
         status = `Moved ${result.deleted?.length ?? 0} file(s) to trash.`;
+        groups = await fetchGroups();
+        currentIndex = 0;
       }
       await refreshPendingCount();
     } catch (e) {
