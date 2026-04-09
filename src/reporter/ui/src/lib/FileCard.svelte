@@ -63,7 +63,11 @@
 
   <div class="details">
     <div class="details-header">
-      {#if showBadge}<span class="badge" class:best={isBest}>{badge}</span>{/if}
+      {#if member.priorDecision === 'keep'}
+        <span class="badge prior">Previously kept</span>
+      {:else if showBadge}
+        <span class="badge" class:best={isBest}>{badge}</span>
+      {/if}
       <span class="info-wrap" bind:this={infoWrapEl}>
         <button class="info-icon" onclick={toggleInfo} aria-label="File info" aria-expanded={infoOpen}>ℹ</button>
         <div class="info-popup" class:open={infoOpen}>
@@ -114,6 +118,7 @@
   .details-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
   .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #333; }
   .badge.best { background: #2a6; }
+  .badge.prior { background: #55a; }
   .info-wrap { position: relative; margin-left: auto; }
   .info-icon { font-size: 0.7rem; color: #666; cursor: pointer; user-select: none; background: none; border: none; padding: 0; line-height: 1; }
   .info-popup {

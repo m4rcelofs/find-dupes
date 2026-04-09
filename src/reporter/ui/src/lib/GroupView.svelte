@@ -12,24 +12,30 @@
 
   const isExact = group.strategy === 'exactHash';
 
-  // For near-duplicates, pre-select the best file as keep and the rest as delete.
-  const initialBestId = group.members.reduce((best, m) =>
-    m.qualityScore > (group.members.find((x) => x.fileId === best)?.qualityScore ?? 0)
+  // Hide files already committed for deletion in another group — no value reviewing them again.
+  const visibleMembers = group.members.filter((m) => m.priorDecision !== 'delete');
+
+  // Best visible file by quality score, used to pre-select keep in near-dup groups.
+  const initialBestId = visibleMembers.reduce((best, m) =>
+    m.qualityScore > (visibleMembers.find((x) => x.fileId === best)?.qualityScore ?? 0)
       ? m.fileId : best,
-    group.members[0]?.fileId ?? 0,
+    visibleMembers[0]?.fileId ?? 0,
   );
 
   let decisions = $state<Record<string, Decision>>(
     isExact
-      ? {}
-      : Object.fromEntries(group.members.map((m) => [String(m.fileId), m.fileId === initialBestId ? 'keep' : 'delete'])),
+      ? Object.fromEntries(visibleMembers.filter((m) => m.priorDecision === 'keep').map((m) => [String(m.fileId), 'keep' as Decision]))
+      : Object.fromEntries(visibleMembers.map((m) => [
+          String(m.fileId),
+          m.priorDecision === 'keep' ? 'keep' : m.fileId === initialBestId ? 'keep' : 'delete',
+        ] as [string, Decision])),
   );
 
-  const bestMemberId = $derived(group.members.reduce((best, m) =>
-    m.qualityScore > (group.members.find((x) => x.fileId === best)?.qualityScore ?? 0)
+  const bestMemberId = visibleMembers.reduce((best, m) =>
+    m.qualityScore > (visibleMembers.find((x) => x.fileId === best)?.qualityScore ?? 0)
       ? m.fileId : best,
-    group.members[0]?.fileId ?? 0,
-  ));
+    visibleMembers[0]?.fileId ?? 0,
+  );
 
   const setDecision = (fileId: number, d: Decision) => {
     decisions = { ...decisions, [String(fileId)]: d };
@@ -43,19 +49,19 @@
   };
 
   const onSkip = async () => {
-    await saveAction(group.id, Object.fromEntries(group.members.map((m) => [String(m.fileId), 'skip' as Decision])));
+    await saveAction(group.id, Object.fromEntries(visibleMembers.map((m) => [String(m.fileId), 'skip' as Decision])));
     onDecided();
   };
 
   const onKeepAll = async () => {
-    await saveAction(group.id, Object.fromEntries(group.members.map((m) => [String(m.fileId), 'keep' as Decision])));
+    await saveAction(group.id, Object.fromEntries(visibleMembers.map((m) => [String(m.fileId), 'keep' as Decision])));
     onDecided();
   };
 
   // For exact matches: clicking Keep on one file auto-marks the rest as delete and submits immediately.
   const onKeepExact = async (fileId: number) => {
     const autoDecisions = Object.fromEntries(
-      group.members.map((m) => [String(m.fileId), (m.fileId === fileId ? 'keep' : 'delete') as Decision]),
+      visibleMembers.map((m) => [String(m.fileId), (m.fileId === fileId ? 'keep' : 'delete') as Decision]),
     );
     await saveAction(group.id, autoDecisions);
     onDecided();
@@ -81,7 +87,7 @@
   </div>
 
   <div class="cards">
-    {#each group.members as member (member.fileId)}
+    {#each visibleMembers as member (member.fileId)}
       <FileCard
         {member}
         decision={decisions[String(member.fileId)] ?? 'none'}

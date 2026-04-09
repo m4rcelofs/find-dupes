@@ -62,6 +62,8 @@ export type MemberWithFile = MatchGroupMember & {
   metadata?: FileMetadata;
   fingerprint?: string;
   perceptualFingerprint?: string;
+  /** Effective decision for this file from a previously decided group. 'keep' wins over 'delete'. */
+  priorDecision?: 'keep' | 'delete';
 };
 
 export type GroupWithMembers = MatchGroup & {

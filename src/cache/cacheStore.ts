@@ -203,6 +203,17 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
    *   that already have a report_actions record.
    */
   const getGroupsWithMembers = (undecidedOnly = false): GroupWithMembers[] => {
+    // Build effective prior decision per file across all decided groups. 'keep' beats 'delete'.
+    const allActions = db.prepare('SELECT decisions_json FROM report_actions').all() as Array<{ decisions_json: string }>;
+    const priorByFileId = new Map<number, 'keep' | 'delete'>();
+    for (const { decisions_json } of allActions) {
+      for (const [fileIdStr, dec] of Object.entries(JSON.parse(decisions_json) as Record<string, Decision>)) {
+        if (dec !== 'keep' && dec !== 'delete') continue;
+        const fid = Number(fileIdStr);
+        if (dec === 'keep' || !priorByFileId.has(fid)) priorByFileId.set(fid, dec);
+      }
+    }
+
     let groupQuery = 'SELECT * FROM match_groups';
     if (undecidedOnly) {
       groupQuery += ' WHERE id NOT IN (SELECT group_id FROM report_actions)';
@@ -249,6 +260,7 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
           metadata: m.metadata_json ? JSON.parse(m.metadata_json as string) as FileMetadata : undefined,
           fingerprint: m.fingerprint as string | undefined,
           perceptualFingerprint: m.perceptual_fingerprint as string | undefined,
+          priorDecision: priorByFileId.get(m.file_id as number),
         })),
       };
     });
