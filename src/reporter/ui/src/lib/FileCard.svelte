@@ -89,7 +89,7 @@
           {#if displayFingerprint && member.fingerprint !== member.perceptualFingerprint}
             <div class="info-row"><span>{hashLabel[strategy] ?? 'Hash'}</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
           {/if}
-          {#if displayPerceptual && strategy !== 'perceptualImage'}
+          {#if displayPerceptual}
             <div class="info-row"><span>{hashLabel['perceptualImage']}</span><span class="mono">{displayPerceptual}</span></div>
           {/if}
         </div>
