@@ -118,7 +118,10 @@ export const runScan = async ({ rootDir, store, strategies, thresholds, force = 
     store.clearMatchGroupsForStrategy(strategy.name);
 
     const results = store.getAllStrategyResults(strategy.name);
-    const liveResults = results.filter((r) => liveFileIds.has(r.fileId));
+    // All-zero fingerprints are degenerate (e.g. silent audio, uniform image) and would
+    // cause every such file to cluster together. Filter them out before grouping.
+    // Storing them rather than throwing means silent files get a cache hit on re-scans.
+    const liveResults = results.filter((r) => liveFileIds.has(r.fileId) && !/^0+$/.test(r.fingerprint));
 
     const clusters =
       strategy.name === 'exactHash'
