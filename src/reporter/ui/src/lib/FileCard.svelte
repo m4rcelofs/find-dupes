@@ -82,7 +82,7 @@
             <div class="info-row"><span>Hash</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
           {/if}
           {#if displayPerceptual}
-            <div class="info-row"><span>dHash</span><span class="mono">{displayPerceptual}</span></div>
+            <div class="info-row"><span>pHash</span><span class="mono">{displayPerceptual}</span></div>
           {/if}
         </div>
       </span>
