@@ -218,6 +218,7 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
     if (undecidedOnly) {
       groupQuery += ' WHERE id NOT IN (SELECT group_id FROM report_actions)';
     }
+    groupQuery += ' ORDER BY similarity_score DESC';
     const groups = db.prepare(groupQuery).all() as Array<{
       id: number; strategy: string; representative_fingerprint: string;
       similarity_score: number; created_at: number;
