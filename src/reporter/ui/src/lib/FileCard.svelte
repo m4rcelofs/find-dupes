@@ -86,11 +86,11 @@
           {/if}
           <div class="info-row"><span>Size</span><span>{formatSize(member.file.size)}</span></div>
           <div class="info-row"><span>Quality score</span><span>{member.qualityScore.toFixed(0)}</span></div>
-          {#if displayFingerprint && member.fingerprint !== member.perceptualFingerprint}
+          {#if displayFingerprint}
             <div class="info-row"><span>{hashLabel[strategy] ?? 'Hash'}</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
-          {/if}
-          {#if displayPerceptual}
-            <div class="info-row"><span>{hashLabel['perceptualImage']}</span><span class="mono">{displayPerceptual}</span></div>
+            {#if displayPerceptual && member.fingerprint !== member.perceptualFingerprint}
+              <div class="info-row"><span>{hashLabel['perceptualImage']}</span><span class="mono">{displayPerceptual}</span></div>
+            {/if}
           {/if}
         </div>
       </span>
