@@ -34,7 +34,16 @@ const defaultRunFpcalc: RunFpcalcFn = async (path) => {
   // fpcalc output: "FILE=...\nDURATION=...\nFINGERPRINT=<comma-separated integers>"
   const match = stdout.match(/^FINGERPRINT=(.+)$/m);
   if (!match) throw new Error(`fpcalc produced unexpected output for ${path}`);
-  return toFixedHex(match[1].trim());
+  const raw = match[1].trim();
+  const integers = raw.split(',').map((s) => parseInt(s, 10));
+  // Silent or muted audio produces all-zero Chromaprint integers (no spectral energy).
+  // Every silent video would share the same degenerate fingerprint, causing false-positive
+  // grouping. Throw so the scanner skips this strategy for the file.
+  const nonZero = integers.filter((n) => n !== 0).length;
+  if (integers.length === 0 || nonZero / integers.length < 0.1) {
+    throw new Error(`Silent or muted audio track — skipping audioFingerprint for ${path}`);
+  }
+  return toFixedHex(raw);
 };
 
 /**
