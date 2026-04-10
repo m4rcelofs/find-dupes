@@ -39,7 +39,6 @@
 
   const truncate = (s: string, n = 64) => s.length > n ? s.slice(0, n) + '…' : s;
   const displayFingerprint = $derived(member.fingerprint ? truncate(member.fingerprint) : null);
-  const displayPerceptual = $derived(member.perceptualFingerprint ?? null);
 
   let infoOpen = $state(false);
   let infoWrapEl = $state<HTMLElement | null>(null);
@@ -88,9 +87,6 @@
           <div class="info-row"><span>Quality score</span><span>{member.qualityScore.toFixed(0)}</span></div>
           {#if displayFingerprint}
             <div class="info-row"><span>{hashLabel[strategy] ?? 'Hash'}</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
-            {#if displayPerceptual && member.fingerprint !== member.perceptualFingerprint}
-              <div class="info-row"><span>{hashLabel['perceptualImage']}</span><span class="mono">{displayPerceptual}</span></div>
-            {/if}
           {/if}
         </div>
       </span>
