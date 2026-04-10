@@ -90,6 +90,7 @@
     {#each visibleMembers as member (member.fileId)}
       <FileCard
         {member}
+        strategy={group.strategy}
         decision={decisions[String(member.fileId)] ?? 'none'}
         isBest={!isExact && member.fileId === bestMemberId}
         showBadge={!isExact}

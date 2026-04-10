@@ -9,9 +9,17 @@
     onDelete: () => void;
     isBest: boolean;
     showBadge: boolean;
+    strategy: string;
   };
 
-  const { member, decision, onKeep, onDelete, isBest, showBadge }: Props = $props();
+  const { member, decision, onKeep, onDelete, isBest, showBadge, strategy }: Props = $props();
+
+  const hashLabel: Record<string, string> = {
+    exactHash: 'SHA-256',
+    audioFingerprint: 'Chromaprint',
+    perceptualVideo: 'Video pHash',
+    perceptualImage: 'pHash',
+  };
 
   const formatSize = (bytes: number) =>
     bytes > 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${(bytes / 1000).toFixed(0)} KB`;
@@ -79,9 +87,9 @@
           <div class="info-row"><span>Size</span><span>{formatSize(member.file.size)}</span></div>
           <div class="info-row"><span>Quality score</span><span>{member.qualityScore.toFixed(0)}</span></div>
           {#if displayFingerprint && member.fingerprint !== member.perceptualFingerprint}
-            <div class="info-row"><span>Hash</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
+            <div class="info-row"><span>{hashLabel[strategy] ?? 'Hash'}</span><span class="mono" title={member.fingerprint}>{displayFingerprint}</span></div>
           {/if}
-          {#if displayPerceptual}
+          {#if displayPerceptual && strategy !== 'perceptualImage'}
             <div class="info-row"><span>pHash</span><span class="mono">{displayPerceptual}</span></div>
           {/if}
         </div>
