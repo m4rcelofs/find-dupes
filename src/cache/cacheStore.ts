@@ -216,12 +216,12 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
 
     let groupQuery = `
       SELECT mg.*,
-        (SELECT MAX(f.size) FROM match_group_members mgm JOIN files f ON f.id = mgm.file_id WHERE mgm.group_id = mg.id) AS max_size
+        (SELECT SUM(f.size) FROM match_group_members mgm JOIN files f ON f.id = mgm.file_id WHERE mgm.group_id = mg.id) AS total_size
       FROM match_groups mg`;
     if (undecidedOnly) {
       groupQuery += ' WHERE mg.id NOT IN (SELECT group_id FROM report_actions)';
     }
-    groupQuery += ' ORDER BY mg.similarity_score DESC, max_size DESC';
+    groupQuery += ' ORDER BY mg.similarity_score DESC, total_size DESC';
     const groups = db.prepare(groupQuery).all() as Array<{
       id: number; strategy: string; representative_fingerprint: string;
       similarity_score: number; created_at: number;
