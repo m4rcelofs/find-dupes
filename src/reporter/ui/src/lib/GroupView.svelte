@@ -15,24 +15,13 @@
   // Hide files already committed for deletion in another group — no value reviewing them again.
   const visibleMembers = group.members.filter((m) => m.priorDecision !== 'delete');
 
-  // Best visible file by quality score, used to pre-select keep in near-dup groups.
-  const initialBestId = visibleMembers.reduce((best, m) =>
-    m.qualityScore > (visibleMembers.find((x) => x.fileId === best)?.qualityScore ?? 0)
-      ? m.fileId : best,
-    visibleMembers[0]?.fileId ?? 0,
-  );
-
-  let decisions = $state<Record<string, Decision>>(
-    isExact
-      ? Object.fromEntries(visibleMembers.filter((m) => m.priorDecision === 'keep').map((m) => [String(m.fileId), 'keep' as Decision]))
-      : Object.fromEntries(visibleMembers.map((m) => [
-          String(m.fileId),
-          m.priorDecision === 'keep' ? 'keep' : m.fileId === initialBestId ? 'keep' : 'delete',
-        ] as [string, Decision])),
-  );
+  // When not all members have resolution data, comparing pixel counts against byte counts
+  // is meaningless — fall back to file size for everyone so the comparison is consistent.
+  const allHaveResolution = visibleMembers.every((m) => m.metadata?.width && m.metadata?.height);
+  const score = (m: typeof visibleMembers[0]) => allHaveResolution ? m.qualityScore : m.file.size;
 
   const bestMemberId = visibleMembers.reduce((best, m) =>
-    m.qualityScore > (visibleMembers.find((x) => x.fileId === best)?.qualityScore ?? 0)
+    score(m) > score(visibleMembers.find((x) => x.fileId === best) ?? visibleMembers[0])
       ? m.fileId : best,
     visibleMembers[0]?.fileId ?? 0,
   );
@@ -41,10 +30,18 @@
 
   const getBadgeLabel = (m: typeof visibleMembers[0]): string => {
     if (m.fileId === bestMemberId) return 'Best';
-    if (m.metadata?.width && bestMember?.metadata?.width) return 'Lower res';
-    if (m.file.size < (bestMember?.file.size ?? 0)) return 'Smaller';
-    return 'Lower quality';
+    if (allHaveResolution) return 'Lower res';
+    return 'Smaller';
   };
+
+  let decisions = $state<Record<string, Decision>>(
+    isExact
+      ? Object.fromEntries(visibleMembers.filter((m) => m.priorDecision === 'keep').map((m) => [String(m.fileId), 'keep' as Decision]))
+      : Object.fromEntries(visibleMembers.map((m) => [
+          String(m.fileId),
+          m.priorDecision === 'keep' ? 'keep' : m.fileId === bestMemberId ? 'keep' : 'delete',
+        ] as [string, Decision])),
+  );
 
   const setDecision = (fileId: number, d: Decision) => {
     decisions = { ...decisions, [String(fileId)]: d };
