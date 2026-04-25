@@ -35,14 +35,13 @@
   const currentGroup = $derived(groups[currentIndex]);
   const remaining = $derived(groups.length - currentIndex);
 
-  // Advance without re-fetching so the list stays stable and Back works.
-  // priorDecision badges refresh on commit.
-  const onDecided = () => {
-    currentIndex += 1;
+  const onDecided = async () => {
+    groups = await loadGroups();
+    // The decided group is removed by the server; the next undecided group slides
+    // into currentIndex automatically. If we were at the last group, currentGroup
+    // becomes undefined and the "All groups reviewed" state is shown correctly.
     refreshPendingCount();
   };
-
-  const onBack = () => { currentIndex = Math.max(0, currentIndex - 1); };
 
   const onCommit = async () => {
     try {
@@ -65,7 +64,6 @@
   <header>
     <h1>find-dupes</h1>
     <span>{remaining} group(s) remaining</span>
-    <button class="back-btn" onclick={onBack} disabled={currentIndex === 0}>← Back</button>
     <button onclick={onCommit} disabled={pendingCount === 0}>
       Commit Deletes{pendingCount > 0 ? ` (${pendingCount})` : ''}
     </button>
@@ -90,9 +88,7 @@
   .app { max-width: 1400px; margin: 0 auto; padding: 1rem; }
   header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
   h1 { font-size: 1.5rem; }
-  .back-btn { margin-left: auto; padding: 0.5rem 1rem; background: transparent; border: 1px solid #555; color: #aaa; border-radius: 4px; cursor: pointer; }
-  .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  button:last-of-type { padding: 0.5rem 1rem; background: #e53; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  button { margin-left: auto; padding: 0.5rem 1rem; background: #e53; color: white; border: none; border-radius: 4px; cursor: pointer; }
   .status { padding: 0.75rem; background: #1a1a1a; border-radius: 4px; margin-bottom: 1rem; }
   .empty { text-align: center; opacity: 0.5; margin-top: 4rem; }
 </style>
