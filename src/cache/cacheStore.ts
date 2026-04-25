@@ -214,11 +214,14 @@ export const createCacheStore = (dbPath: string, rootDir?: string) => {
       }
     }
 
-    let groupQuery = 'SELECT * FROM match_groups';
+    let groupQuery = `
+      SELECT mg.*,
+        (SELECT MAX(f.size) FROM match_group_members mgm JOIN files f ON f.id = mgm.file_id WHERE mgm.group_id = mg.id) AS max_size
+      FROM match_groups mg`;
     if (undecidedOnly) {
-      groupQuery += ' WHERE id NOT IN (SELECT group_id FROM report_actions)';
+      groupQuery += ' WHERE mg.id NOT IN (SELECT group_id FROM report_actions)';
     }
-    groupQuery += ' ORDER BY similarity_score DESC';
+    groupQuery += ' ORDER BY mg.similarity_score DESC, max_size DESC';
     const groups = db.prepare(groupQuery).all() as Array<{
       id: number; strategy: string; representative_fingerprint: string;
       similarity_score: number; created_at: number;
