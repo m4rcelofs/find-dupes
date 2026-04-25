@@ -37,6 +37,15 @@
     visibleMembers[0]?.fileId ?? 0,
   );
 
+  const bestMember = visibleMembers.find((m) => m.fileId === bestMemberId);
+
+  const getBadgeLabel = (m: typeof visibleMembers[0]): string => {
+    if (m.fileId === bestMemberId) return 'Best';
+    if (m.metadata?.width && bestMember?.metadata?.width) return 'Lower res';
+    if (m.file.size < (bestMember?.file.size ?? 0)) return 'Smaller';
+    return 'Lower quality';
+  };
+
   const setDecision = (fileId: number, d: Decision) => {
     decisions = { ...decisions, [String(fileId)]: d };
   };
@@ -93,7 +102,7 @@
         strategy={group.strategy}
         decision={decisions[String(member.fileId)] ?? 'none'}
         isBest={!isExact && member.fileId === bestMemberId}
-        showBadge={!isExact}
+        badgeLabel={isExact ? '' : getBadgeLabel(member)}
         onKeep={isExact ? () => onKeepExact(member.fileId) : () => setDecision(member.fileId, 'keep')}
         onDelete={() => setDecision(member.fileId, 'delete')}
       />

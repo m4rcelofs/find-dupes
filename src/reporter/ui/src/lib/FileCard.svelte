@@ -8,11 +8,11 @@
     onKeep: () => void;
     onDelete: () => void;
     isBest: boolean;
-    showBadge: boolean;
+    badgeLabel: string;
     strategy: string;
   };
 
-  const { member, decision, onKeep, onDelete, isBest, showBadge, strategy }: Props = $props();
+  const { member, decision, onKeep, onDelete, isBest, badgeLabel, strategy }: Props = $props();
 
   const hashLabel: Record<string, string> = {
     exactHash: 'SHA-256',
@@ -33,7 +33,6 @@
 
   const isVideo = $derived(member.file.mimeType.startsWith('video/'));
   const src = $derived(mediaUrl(member.file.path));
-  const badge = $derived(isBest ? 'Best' : member.metadata?.width ? 'Lower res' : 'Smaller');
   const pathParts = $derived(member.file.path.split('/').filter(Boolean));
   const shortPath = $derived(pathParts.slice(-3).join('/'));
 
@@ -72,8 +71,8 @@
     <div class="details-header">
       {#if member.priorDecision === 'keep'}
         <span class="badge prior">Previously kept</span>
-      {:else if showBadge}
-        <span class="badge" class:best={isBest}>{badge}</span>
+      {:else if badgeLabel}
+        <span class="badge" class:best={isBest}>{badgeLabel}</span>
       {/if}
       <span class="info-wrap" bind:this={infoWrapEl}>
         <button class="info-icon" onclick={toggleInfo} aria-label="File info" aria-expanded={infoOpen}>ℹ</button>
