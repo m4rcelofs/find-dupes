@@ -1,5 +1,5 @@
 import express, { type Express } from 'express';
-import trash from 'trash';
+import { safeTrash, FALLBACK_TRASH_DIR } from './safeTrash.js';
 import { existsSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,10 @@ const UI_DIST = join(dirname(fileURLToPath(import.meta.url)), 'ui/dist');
 type ReportServerOptions = {
   store: CacheStore;
   dryRun: boolean;
+  /** Move files to `.find-dupes-trash/` on their own volume when it has no system trash. */
+  trashFallback?: boolean;
+  /** Override the system trash call. Test seam. */
+  trashImpl?: (path: string) => Promise<unknown>;
 };
 
 /**
@@ -23,8 +27,10 @@ type ReportServerOptions = {
  *   Overwrites any previous decision. Returns 400 for invalid group ID or missing body.
  * - `POST /api/commit`         — move all files marked 'delete' to the system trash.
  *   In dry-run mode returns `{ dryRun: true, wouldDelete: string[] }` without touching disk.
- *   In live mode returns `{ dryRun: false, deleted: string[], errors: { path, error }[] }`;
- *   failures are per-file, not batch-aborting.
+ *   In live mode returns
+ *   `{ dryRun: false, deleted: string[], fallback: { path, destination }[], errors: { path, error }[] }`;
+ *   failures are per-file, not batch-aborting. Files on volumes with no system trash (network
+ *   shares) go to `.find-dupes-trash/` on that volume unless `trashFallback` is false.
  * - `GET  /api/media?path=...` — serve a file for `<img>`/`<video>` preview. Only serves paths
  *   known to the database (arbitrary paths return 404; non-absolute paths return 400).
  *
@@ -33,7 +39,12 @@ type ReportServerOptions = {
  * Security: intended for local use only. `/api/media` is restricted to DB-known paths,
  * but the server has no authentication. Do not expose on a public network interface.
  */
-export const createReportServer = ({ store, dryRun }: ReportServerOptions): Express => {
+export const createReportServer = ({
+  store,
+  dryRun,
+  trashFallback = true,
+  trashImpl,
+}: ReportServerOptions): Express => {
   const app = express();
   app.use(express.json());
 
@@ -76,17 +87,21 @@ export const createReportServer = ({ store, dryRun }: ReportServerOptions): Expr
       return;
     }
     const deleted: string[] = [];
+    const fallback: Array<{ path: string; destination: string }> = [];
     const errors: Array<{ path: string; error: string }> = [];
     for (const filePath of pending) {
       try {
-        await trash(filePath);
+        const result = await safeTrash(filePath, { fallback: trashFallback, trashImpl });
         store.markFileDeletedByPath(filePath);
         deleted.push(filePath);
+        if (result.method === 'fallback' && result.destination) {
+          fallback.push({ path: filePath, destination: result.destination });
+        }
       } catch (e) {
-        errors.push({ path: filePath, error: String(e) });
+        errors.push({ path: filePath, error: e instanceof Error ? e.message : String(e) });
       }
     }
-    res.json({ dryRun: false, deleted, errors });
+    res.json({ dryRun: false, deleted, fallback, fallbackDir: FALLBACK_TRASH_DIR, errors });
   });
 
   // Serve media files for preview (browser fetches these as <img src> / <video src>)

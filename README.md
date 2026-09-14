@@ -126,6 +126,7 @@ find-dupes report /Volumes/Photos
 | `--db <path>` | `<root-dir>/.find-dupes.db` | Path to the SQLite database from a previous scan |
 | `--port <n>` | `3000` | Port to listen on |
 | `--dry-run` | off | Log what would be trashed without moving anything |
+| `--no-trash-fallback` | off | Report an error instead of using `.find-dupes-trash/` on volumes with no system trash |
 
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
@@ -138,6 +139,10 @@ scan → review in browser → commit deletes
 The scan is incremental: if you add files to a directory and re-scan, only the new files are fingerprinted. If you add a new strategy (e.g. you install `fpcalc` later), it will run the new strategy on all files without re-running existing ones.
 
 Decisions made in the report UI are saved to the database immediately. The `Commit Deletes` button performs the actual file deletions (or prints a dry-run summary with `--dry-run`).
+
+### Network volumes (NAS)
+
+Mounted network shares (SMB/AFP/NFS) have no system trash, so macOS refuses to trash files on them. For files on such a volume, commit moves them to `.find-dupes-trash/` at the root of that volume instead, keeping their path below the volume root so they stay recoverable — delete that directory yourself once you're happy with the result. Pass `--no-trash-fallback` to have commit report an error for those files instead.
 
 ## Further reading
 

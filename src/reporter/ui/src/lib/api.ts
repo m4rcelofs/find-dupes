@@ -25,7 +25,17 @@ export const fetchPendingCount = async (): Promise<number> => {
   return data.count;
 };
 
-export const commitDeletes = async (): Promise<{ dryRun: boolean; deleted?: string[]; wouldDelete?: string[] }> => {
+export type CommitResult = {
+  dryRun: boolean;
+  deleted?: string[];
+  wouldDelete?: string[];
+  /** Files moved to the on-volume trash dir because their volume has no system trash. */
+  fallback?: Array<{ path: string; destination: string }>;
+  fallbackDir?: string;
+  errors?: Array<{ path: string; error: string }>;
+};
+
+export const commitDeletes = async (): Promise<CommitResult> => {
   const res = await fetch('/api/commit', { method: 'POST' });
   if (!res.ok) throw new Error('Failed to commit');
   return res.json();

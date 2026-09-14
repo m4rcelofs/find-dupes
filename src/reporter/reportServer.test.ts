@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { createCacheStore } from '../cache/cacheStore.js';
 import { createReportServer } from './reportServer.js';
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 let store: ReturnType<typeof createCacheStore>;
@@ -99,6 +99,43 @@ describe('POST /api/commit', () => {
     expect(res.status).toBe(200);
     expect(res.body.dryRun).toBe(false);
     expect(res.body.deleted).toContain(fileToDelete);
+    expect(res.body.errors).toEqual([]);
+    liveStore.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reports per-file errors and keeps failed files pending', async () => {
+    // Reproduces a NAS share: the system trash refuses the file (no trash on that volume).
+    const tmpDir = '/tmp/find-dupes-commit-error-test';
+    mkdirSync(tmpDir, { recursive: true });
+    const fileToDelete = join(tmpDir, 'to-delete.jpg');
+    writeFileSync(fileToDelete, 'fake image content');
+
+    const liveStore = createCacheStore(':memory:');
+    const liveApp = createReportServer({
+      store: liveStore,
+      dryRun: false,
+      trashFallback: false,
+      trashImpl: async () => {
+        throw new Error('the volume “NAS” doesn’t have one.');
+      },
+    });
+    const id1 = liveStore.upsertFile({ path: join(tmpDir, 'keep.jpg'), size: 1000, mtime: 1, mimeType: 'image/jpeg' });
+    const id2 = liveStore.upsertFile({ path: fileToDelete, size: 800, mtime: 1, mimeType: 'image/jpeg' });
+    const groupId = liveStore.insertMatchGroup('exactHash', 'abc123', 100);
+    liveStore.insertMatchGroupMember(groupId, id1, 1000);
+    liveStore.insertMatchGroupMember(groupId, id2, 800);
+    liveStore.saveReportAction(groupId, { [String(id1)]: 'keep', [String(id2)]: 'delete' });
+
+    const res = await request(liveApp).post('/api/commit');
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toEqual([]);
+    expect(res.body.errors).toHaveLength(1);
+    expect(res.body.errors[0].path).toBe(fileToDelete);
+    expect(res.body.errors[0].error).toMatch(/doesn’t have one/);
+    // Nothing was trashed, so the file must still show up as pending.
+    expect(liveStore.getPendingDeletes()).toContain(fileToDelete);
+    expect(existsSync(fileToDelete)).toBe(true);
     liveStore.close();
     rmSync(tmpDir, { recursive: true, force: true });
   });

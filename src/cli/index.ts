@@ -154,12 +154,13 @@ program
   .option('--db <path>', 'SQLite database path (default: <root-dir>/.find-dupes.db)')
   .option('--dry-run', 'Log files that would be trashed without moving them', false)
   .option('--force', 'Clear all saved review decisions and start over', false)
-  .action(async (rootDir: string | undefined, opts: { port: number; db?: string; dryRun: boolean; force: boolean }) => {
+  .option('--no-trash-fallback', 'Error out instead of using .find-dupes-trash/ on volumes without a system trash (e.g. NAS shares)')
+  .action(async (rootDir: string | undefined, opts: { port: number; db?: string; dryRun: boolean; force: boolean; trashFallback: boolean }) => {
     const absRoot = rootDir ? resolve(rootDir) : process.cwd();
     const dbPath = opts.db ?? `${absRoot}/.find-dupes.db`;
     const store = createCacheStore(resolve(dbPath), absRoot);
     if (opts.force) store.clearReportActions();
-    const server = createReportServer({ store, dryRun: opts.dryRun });
+    const server = createReportServer({ store, dryRun: opts.dryRun, trashFallback: opts.trashFallback });
     server.listen(opts.port, () => {
       console.log(`Report server running at http://localhost:${opts.port}`);
       console.log('Open your browser to review duplicates.');

@@ -49,7 +49,15 @@
       if (result.dryRun) {
         status = `Dry run — would delete: ${result.wouldDelete?.join(', ')}`;
       } else {
-        status = `Moved ${result.deleted?.length ?? 0} file(s) to trash.`;
+        const fallbackCount = result.fallback?.length ?? 0;
+        const parts = [`Moved ${result.deleted?.length ?? 0} file(s) to trash.`];
+        if (fallbackCount > 0) {
+          // Network volumes have no system trash, so those files went to a dir on the volume.
+          parts.push(`${fallbackCount} went to ${result.fallbackDir}/ (volume has no trash).`);
+        }
+        // Errors used to be dropped silently, which made a total failure look like a no-op.
+        for (const err of result.errors ?? []) parts.push(`Failed: ${err.path} — ${err.error}`);
+        status = parts.join(' ');
         groups = await loadGroups();
         currentIndex = 0;
       }
