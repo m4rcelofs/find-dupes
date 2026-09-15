@@ -1,6 +1,7 @@
 <script lang="ts">
   import FileCard from './FileCard.svelte';
   import { saveAction } from './api.js';
+  import { playWindow, MAX_CONCURRENT_PLAYBACK } from './playback.js';
   import type { GroupWithMembers, Decision } from '../../../../types.js';
 
   type Props = {
@@ -45,7 +46,96 @@
 
   const setDecision = (fileId: number, d: Decision) => {
     decisions = { ...decisions, [String(fileId)]: d };
+    // Only the user's own Delete click retires a video from the play window. The defaults
+    // above pre-mark every copy but the best one, which is a recommendation, not a
+    // viewing choice — honouring it would leave one video to compare against nothing.
+    explicitlyDeleted = d === 'delete'
+      ? (explicitlyDeleted.includes(fileId) ? explicitlyDeleted : [...explicitlyDeleted, fileId])
+      : explicitlyDeleted.filter((id) => id !== fileId);
   };
+
+  // --- Synced playback -------------------------------------------------------------------
+  // Watch the copies in lockstep instead of starting each one by hand. At most
+  // MAX_CONCURRENT_PLAYBACK play at once: two groups here have 190 and 339 members.
+
+  /** Seconds of drift tolerated before a video is re-seeked. Also stops sync feedback loops:
+   *  syncing converges once every element is within tolerance, so no flag is needed. */
+  const SYNC_TOLERANCE = 0.3;
+
+  let playing = $state(false);
+  let explicitlyDeleted = $state<number[]>([]);
+  let cardsEl = $state<HTMLElement | null>(null);
+
+  const videoOrder = visibleMembers
+    .filter((m) => m.file.mimeType.startsWith('video/'))
+    .map((m) => m.fileId);
+
+  const activeWindow = $derived(playing ? playWindow(videoOrder, explicitlyDeleted) : []);
+
+  // Queried on demand rather than kept in a registry: the DOM is the authority and cannot
+  // go stale. The elements live as long as this group is mounted.
+  const videoElements = (): HTMLVideoElement[] =>
+    cardsEl ? [...cardsEl.querySelectorAll<HTMLVideoElement>('video[data-file-id]')] : [];
+
+  const videoId = (el: HTMLVideoElement) => Number(el.dataset.fileId);
+
+  const togglePlayAll = () => { playing = !playing; };
+
+  // Drive the elements from activeWindow: start what should play (at the timestamp its
+  // neighbours are already at), pause what should not. Writes only to the DOM, never to
+  // tracked state, so it cannot re-trigger itself.
+  $effect(() => {
+    const active = new Set(activeWindow);
+    const els = videoElements();
+    const reference = els.find((el) => active.has(videoId(el)) && !el.paused);
+    const referenceTime = reference ? reference.currentTime : 0;
+
+    for (const el of els) {
+      if (!active.has(videoId(el))) {
+        if (!el.paused) el.pause();
+        continue;
+      }
+      if (!el.paused) continue;
+      if (Math.abs(el.currentTime - referenceTime) > SYNC_TOLERANCE) el.currentTime = referenceTime;
+      // Rejects on an undecodable file; one bad copy must not stop the others.
+      el.play().catch(() => {});
+    }
+  });
+
+  // Keep the transport in sync with whatever the native controls do.
+  $effect(() => {
+    const els = videoElements();
+    if (els.length === 0) return;
+
+    const onSeeked = (e: Event) => {
+      const el = e.currentTarget as HTMLVideoElement;
+      if (!activeWindow.includes(videoId(el))) return;
+      const t = el.currentTime;
+      for (const other of els) {
+        if (other === el || !activeWindow.includes(videoId(other))) continue;
+        if (Math.abs(other.currentTime - t) > SYNC_TOLERANCE) other.currentTime = t;
+      }
+    };
+
+    const onPause = (e: Event) => {
+      const el = e.currentTarget as HTMLVideoElement;
+      // Ignore a pause we caused by retiring the video, and the one a clip fires when it
+      // reaches its end — neither means the user stopped the set.
+      if (el.ended || !activeWindow.includes(videoId(el))) return;
+      playing = false;
+    };
+
+    for (const el of els) {
+      el.addEventListener('seeked', onSeeked);
+      el.addEventListener('pause', onPause);
+    }
+    return () => {
+      for (const el of els) {
+        el.removeEventListener('seeked', onSeeked);
+        el.removeEventListener('pause', onPause);
+      }
+    };
+  });
 
   const hasDecisions = $derived(Object.keys(decisions).length > 0);
 
@@ -87,6 +177,7 @@
       if (e.key === 'Enter' && hasDecisions) onSubmit();
       if (e.key === 'k') onKeepAll();
       if (e.key === 's') onSkip();
+      if (e.key === 'p' && videoOrder.length >= 2) togglePlayAll();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -97,9 +188,18 @@
   <div class="group-meta">
     <span class="strategy">{group.strategy}</span>
     <span class="score">{group.similarityScore.toFixed(0)}% similar</span>
+    {#if videoOrder.length >= 2}
+      <button
+        class="play-all"
+        onclick={togglePlayAll}
+        title={`Plays up to ${MAX_CONCURRENT_PLAYBACK} copies at once, in step. Marking one for deletion hands its slot to the next copy.`}
+      >
+        {playing ? 'Pause All (p)' : 'Play All (p)'}
+      </button>
+    {/if}
   </div>
 
-  <div class="cards">
+  <div class="cards" bind:this={cardsEl}>
     {#each visibleMembers as member (member.fileId)}
       <FileCard
         {member}
@@ -126,6 +226,7 @@
   .group { margin-bottom: 2rem; }
   .group-meta { display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.85rem; opacity: 0.7; }
   .strategy { font-family: monospace; }
+  .play-all { margin-left: auto; padding: 0.2rem 0.6rem; background: transparent; border: 1px solid #555; color: #ccc; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
   .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .group-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
   .skip { padding: 0.5rem 1.25rem; background: transparent; border: 1px solid #555; color: #aaa; border-radius: 4px; cursor: pointer; }

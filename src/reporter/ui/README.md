@@ -55,7 +55,9 @@ A filter bar of per-strategy checkboxes narrows the review queue. It is derived 
 
 ### `GroupView.svelte`
 
-Receives a `GroupWithMembers` and renders all members in a CSS grid (`repeat(N, 1fr)` columns). Tracks a `decisions` record locally. **Skip** records `'skip'` for all members and advances. **Confirm** is disabled until at least one decision is made; on click, POSTs to `/api/groups/:id/action` and advances. Keyboard shortcuts (Enter / `k` / `s`) are bound on `window`, so they ignore keystrokes aimed at any form control and any keystroke carrying a modifier — otherwise focusing a filter checkbox, or pressing ⌘S, would decide the group behind it.
+Receives a `GroupWithMembers` and renders all members in a CSS grid (`repeat(N, 1fr)` columns). Tracks a `decisions` record locally. **Skip** records `'skip'` for all members and advances. **Confirm** is disabled until at least one decision is made; on click, POSTs to `/api/groups/:id/action` and advances. Keyboard shortcuts (Enter / `k` / `s` / `p`) are bound on `window`, so they ignore keystrokes aimed at any form control and any keystroke carrying a modifier — otherwise focusing a filter checkbox, or pressing ⌘S, would decide the group behind it.
+
+**Play All** (`p`) plays the group's videos in step so near-identical clips can be compared at the same moment: at most three at once (two groups in the working database have 190 and 339 members), started together, scrub-synced, and paused together. Nothing is unmuted. A slot frees only when the user clicks Delete on a playing card — the pre-marked defaults are a recommendation, not a viewing choice — and the next copy starts at the timestamp its neighbours are already at. `playback.ts` holds the pure window selection; the component drives the elements, found by `data-file-id` under the cards container.
 
 ### `FileCard.svelte`
 

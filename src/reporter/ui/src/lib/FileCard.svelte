@@ -59,7 +59,7 @@
 <div class="card" class:keep={decision === 'keep'} class:delete={decision === 'delete'}>
   <div class="preview">
     {#if isVideo}
-      <video {src} muted playsinline controls preload="metadata">
+      <video {src} data-file-id={member.fileId} muted playsinline controls preload="metadata">
         <img {src} alt="thumbnail fallback" />
       </video>
     {:else}
