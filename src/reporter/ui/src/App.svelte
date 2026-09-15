@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { fetchGroups, commitDeletes, fetchPendingCount, type CommitResult } from './lib/api.js';
   import { formatCommitProgress } from './lib/progress.js';
+  import { availableStrategies, applyStrategyFilter, reconcileSelection } from './lib/filters.js';
   import GroupView from './lib/GroupView.svelte';
   import type { GroupWithMembers } from '../../../types.js';
 
@@ -16,9 +17,35 @@
   let committing = $state(false);
   // Pending count snapshotted when Commit was clicked, so progress has a denominator.
   let commitTotal = $state(0);
+  let selectedStrategies = $state<string[]>([]);
 
   const refreshPendingCount = async () => {
     try { pendingCount = await fetchPendingCount(); } catch { /* ignore */ }
+  };
+
+  const STORAGE_KEY = 'find-dupes.strategyFilter';
+
+  // Read and write need separate guards: Safari private mode throws on setItem but not
+  // getItem, and a sandboxed frame throws on the property access itself.
+  const readSavedStrategies = (): string[] | null => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.every((s) => typeof s === 'string') ? parsed : null;
+    } catch { return null; }
+  };
+
+  const writeSavedStrategies = (list: string[]) => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch { /* not persisted */ }
+  };
+
+  const toggleStrategy = (strategy: string) => {
+    const next = selectedStrategies.includes(strategy)
+      ? selectedStrategies.filter((s) => s !== strategy)
+      : [...selectedStrategies, strategy];
+    selectedStrategies = next;
+    writeSavedStrategies(next);
   };
 
   // Skip groups with nothing left to decide: need ≥2 visible (non-deleted) members
@@ -33,7 +60,14 @@
 
   onMount(async () => {
     try {
-      groups = await loadGroups();
+      const loaded = await loadGroups();
+      // No await between these two, or an empty saved selection would render the
+      // "no groups match" state for a frame.
+      groups = loaded;
+      selectedStrategies = reconcileSelection(
+        readSavedStrategies(),
+        availableStrategies(loaded).map((s) => s.strategy),
+      );
     } catch (e) {
       status = `Failed to load groups: ${e}`;
     } finally {
@@ -44,8 +78,11 @@
 
   // Every decided group gains a report_actions row and is excluded server-side, so the list
   // shrinks and the next group is always the head — there is no cursor to advance.
-  const currentGroup = $derived(groups[0]);
-  const remaining = $derived(groups.length);
+  // Counts come from the unfiltered list so they stay put when a box is unchecked.
+  const strategies = $derived(availableStrategies(groups));
+  const filteredGroups = $derived(applyStrategyFilter(groups, selectedStrategies));
+  const currentGroup = $derived(filteredGroups[0]);
+  const remaining = $derived(filteredGroups.length);
   const commitProgress = $derived(formatCommitProgress({ total: commitTotal, pending: pendingCount }));
 
   const onDecided = async () => {
@@ -126,7 +163,11 @@
   <header>
     <h1>find-dupes</h1>
     <span>{remaining} group(s) remaining</span>
-    <button onclick={onCommit} disabled={committing || pendingCount === 0}>
+    <button
+      onclick={onCommit}
+      disabled={committing || pendingCount === 0}
+      title="Commits every file marked for deletion, including groups hidden by the current filter."
+    >
       {#if committing}
         Moving…
       {:else}
@@ -134,6 +175,21 @@
       {/if}
     </button>
   </header>
+
+  {#if strategies.length > 1}
+    <div class="filters">
+      {#each strategies as option (option.strategy)}
+        <label class="filter" class:on={selectedStrategies.includes(option.strategy)}>
+          <input
+            type="checkbox"
+            checked={selectedStrategies.includes(option.strategy)}
+            onchange={() => toggleStrategy(option.strategy)}
+          />
+          {option.label} ({option.count})
+        </label>
+      {/each}
+    </div>
+  {/if}
 
   {#if committing || status}
     <div class="status">{committing ? commitProgress : status}</div>
@@ -145,8 +201,10 @@
     {#key currentGroup.id}
       <GroupView group={currentGroup} onDecided={onDecided} />
     {/key}
-  {:else}
+  {:else if groups.length === 0}
     <p class="empty">{decidedAny ? 'All groups reviewed.' : 'No duplicate groups found.'}</p>
+  {:else}
+    <p class="empty">No groups match the current filter.</p>
   {/if}
 </div>
 
@@ -158,6 +216,10 @@
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   .status { padding: 0.75rem; background: #1a1a1a; border-radius: 4px; margin-bottom: 1rem; }
   .empty { text-align: center; opacity: 0.5; margin-top: 4rem; }
+  .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+  .filter { display: flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; background: transparent; border: 1px solid #444; border-radius: 4px; color: #ccc; font-size: 0.85rem; cursor: pointer; }
+  .filter.on { border-color: #2a6; color: #e0e0e0; }
+  .filter input { accent-color: #2a6; cursor: pointer; }
   .loading { display: flex; align-items: center; justify-content: center; gap: 0.6rem; margin-top: 4rem; color: #888; }
   /* Svelte hashes keyframe names per component, so these must stay in this file. */
   .spinner { width: 16px; height: 16px; border: 2px solid #333; border-top-color: #88aaff; border-radius: 50%; animation: spin 0.8s linear infinite; }

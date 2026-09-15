@@ -51,9 +51,11 @@ Loads all undecided groups from `GET /api/groups` on mount and shows the head of
 
 On a network volume `GET /api/groups` takes seconds, so a `loading` flag drives a spinner for the initial load and for the re-fetch after each decision; a `decidedAny` flag tells "All groups reviewed." apart from "No duplicate groups found.", since both leave the list empty. During a commit the button disables and the status line shows live progress polled from `GET /api/pending-count` once a second — the commit marks each file deleted as it trashes it, so the pending count doubles as a progress signal.
 
+A filter bar of per-strategy checkboxes narrows the review queue. It is derived from the loaded groups (so only strategies that actually produced groups appear, with live counts) and filters client-side — `GroupWithMembers` already carries `strategy`, so toggling needs no refetch. The selection persists in `localStorage` under `find-dupes.strategyFilter` and is reconciled against what the current database offers on load. Committing deliberately ignores the filter: the counter and the button cover every pending delete, including groups currently hidden.
+
 ### `GroupView.svelte`
 
-Receives a `GroupWithMembers` and renders all members in a CSS grid (`repeat(N, 1fr)` columns). Tracks a `decisions` record locally. **Skip** records `'skip'` for all members and advances. **Confirm** is disabled until at least one decision is made; on click, POSTs to `/api/groups/:id/action` and advances.
+Receives a `GroupWithMembers` and renders all members in a CSS grid (`repeat(N, 1fr)` columns). Tracks a `decisions` record locally. **Skip** records `'skip'` for all members and advances. **Confirm** is disabled until at least one decision is made; on click, POSTs to `/api/groups/:id/action` and advances. Keyboard shortcuts (Enter / `k` / `s`) are bound on `window`, so they ignore keystrokes aimed at any form control and any keystroke carrying a modifier — otherwise focusing a filter checkbox, or pressing ⌘S, would decide the group behind it.
 
 ### `FileCard.svelte`
 

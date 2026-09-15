@@ -73,10 +73,17 @@
     onDecided();
   };
 
-  // Keyboard shortcuts: Enter = confirm, k = keep all.
+  // Ignore keystrokes aimed at a control (buttons, the filter checkboxes, …) so focusing
+  // one cannot decide the group behind it.
+  const isControlTarget = (target: EventTarget | null) =>
+    target instanceof HTMLElement
+    && target.closest('button, input, select, textarea, [contenteditable="true"]') !== null;
+
+  // Keyboard shortcuts: Enter = confirm, k = keep all, s = skip.
   $effect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLButtonElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return; // ⌘S must save the page, not skip
+      if (isControlTarget(e.target)) return;
       if (e.key === 'Enter' && hasDecisions) onSubmit();
       if (e.key === 'k') onKeepAll();
       if (e.key === 's') onSkip();
