@@ -47,7 +47,9 @@ Then open the Vite dev server URL (default: `http://localhost:5173`). Changes to
 
 ### `App.svelte`
 
-Loads all undecided groups from `GET /api/groups` on mount. Displays one group at a time (`currentIndex` state). When a group is decided or skipped, `currentIndex` increments. The `{#key currentGroup.id}` block around `GroupView` forces it to remount for each new group, resetting its local decisions state cleanly.
+Loads all undecided groups from `GET /api/groups` on mount and shows the head of the list. Every decided or skipped group gains a `report_actions` row and is excluded by the server, so a decision re-fetches the list and the next group becomes the head — there is no cursor to advance. The `{#key currentGroup.id}` block around `GroupView` forces it to remount for each new group, resetting its local decisions state cleanly.
+
+On a network volume `GET /api/groups` takes seconds, so a `loading` flag drives a spinner for the initial load and for the re-fetch after each decision; a `decidedAny` flag tells "All groups reviewed." apart from "No duplicate groups found.", since both leave the list empty. During a commit the button disables and the status line shows live progress polled from `GET /api/pending-count` once a second — the commit marks each file deleted as it trashes it, so the pending count doubles as a progress signal.
 
 ### `GroupView.svelte`
 
